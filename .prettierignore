@@ -1,0 +1,5 @@
+package-lock.json
+node_modules/
+cypress/reports/
+cypress/snapshots/
+cypress/support/data-files.d.ts

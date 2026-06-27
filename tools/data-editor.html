@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Test Data Editor</title>
+    <style>
+      :root {
+        --bg: #0f1115;
+        --panel: #171a21;
+        --line: #262b36;
+        --txt: #e6e9ef;
+        --muted: #8b93a7;
+        --accent: #4f9cf9;
+        --danger: #f9594f;
+        --ok: #4fd07a;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        height: 100vh;
+        font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+        background: var(--bg);
+        color: var(--txt);
+      }
+      aside {
+        background: var(--panel);
+        border-right: 1px solid var(--line);
+        padding: 16px;
+        overflow: auto;
+      }
+      aside h1 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+      ul { list-style: none; margin: 0 0 16px; padding: 0; }
+      li {
+        padding: 8px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        color: var(--txt);
+      }
+      li:hover { background: #1f2430; }
+      li.active { background: var(--accent); color: #fff; }
+      main { padding: 20px 24px; overflow: auto; }
+      header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+      h2 { margin: 0; font-size: 18px; }
+      button {
+        background: #222836;
+        color: var(--txt);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 7px 12px;
+        cursor: pointer;
+        font: inherit;
+      }
+      button:hover { border-color: var(--accent); }
+      button:disabled { opacity: 0.4; cursor: not-allowed; }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      button.danger { color: var(--danger); }
+      .row { display: flex; gap: 8px; align-items: center; }
+      #toolbar { display: flex; gap: 8px; margin-bottom: 14px; }
+      input[type='text'], input[type='number'] {
+        background: #0c0e12;
+        border: 1px solid var(--line);
+        color: var(--txt);
+        border-radius: 5px;
+        padding: 6px 8px;
+        font: inherit;
+        width: 100%;
+      }
+      input:focus { outline: none; border-color: var(--accent); }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid var(--line); padding: 4px 6px; text-align: left; }
+      th { background: #1c212c; color: var(--muted); font-weight: 600; white-space: nowrap; }
+      td.center { text-align: center; }
+      .muted { color: var(--muted); }
+      form { display: flex; gap: 6px; margin: 0; }
+      form input { width: 120px; }
+      #toast {
+        position: fixed; bottom: 18px; right: 18px;
+        padding: 10px 16px; border-radius: 8px; font-weight: 600;
+        opacity: 0; transition: opacity 0.2s; pointer-events: none;
+      }
+      #toast.show { opacity: 1; }
+      #toast.ok { background: var(--ok); color: #06210f; }
+      #toast.err { background: var(--danger); color: #2a0606; }
+    </style>
+  </head>
+  <body>
+    <aside>
+      <h1>Data Files</h1>
+      <ul id="files"></ul>
+      <form id="newFileForm">
+        <input id="newFileName" type="text" placeholder="new-file" />
+        <button class="primary" type="submit">+</button>
+      </form>
+    </aside>
+
+    <main>
+      <header>
+        <h2 id="current">Select a file →</h2>
+        <div class="row">
+          <button id="saveBtn" class="primary" disabled>Save</button>
+          <button id="delFileBtn" class="danger" disabled>Delete file</button>
+        </div>
+      </header>
+
+      <div id="toolbar" hidden>
+        <button id="addRowBtn">+ Row</button>
+        <form id="addFieldForm">
+          <input id="addFieldName" type="text" placeholder="new field" />
+          <button type="submit">+ Field</button>
+        </form>
+      </div>
+
+      <div id="tableWrap"><p class="muted">Pick a file on the left to edit it.</p></div>
+    </main>
+
+    <div id="toast"></div>
+
+    <script>
+      let file = null
+      let records = []
+      let columns = []
+      let types = {}
+
+      const $ = (id) => document.getElementById(id)
+      const api = (path, opt) =>
+        fetch(path, opt).then((r) =>
+          r.ok ? r.json() : r.json().then((e) => Promise.reject(new Error(e.error || r.status))),
+        )
+
+      function toast(msg, ok = true) {
+        const t = $('toast')
+        t.textContent = msg
+        t.className = 'show ' + (ok ? 'ok' : 'err')
+        setTimeout(() => (t.className = ''), 2400)
+      }
+
+      async function loadFiles() {
+        const files = await api('/api/files')
+        const ul = $('files')
+        ul.innerHTML = ''
+        files.forEach((f) => {
+          const li = document.createElement('li')
+          li.textContent = f
+          if (f === file) li.className = 'active'
+          li.onclick = () => openFile(f)
+          ul.appendChild(li)
+        })
+      }
+
+      function deriveSchema(rows) {
+        columns = []
+        types = {}
+        rows.forEach((r) =>
+          Object.keys(r).forEach((k) => {
+            if (!columns.includes(k)) columns.push(k)
+            if (!types[k] && r[k] !== '' && r[k] != null) types[k] = typeof r[k]
+          }),
+        )
+        columns.forEach((c) => (types[c] ||= 'string'))
+      }
+
+      async function openFile(f) {
+        const data = await api('/api/data/' + f)
+        records = Array.isArray(data) ? data : [data]
+        file = f
+        deriveSchema(records)
+        $('current').textContent = f
+        $('saveBtn').disabled = false
+        $('delFileBtn').disabled = false
+        $('toolbar').hidden = false
+        render()
+        loadFiles()
+      }
+
+      function cellInput(rec, col) {
+        const type = types[col]
+        const inp = document.createElement('input')
+        if (type === 'boolean') {
+          inp.type = 'checkbox'
+          inp.checked = !!rec[col]
+          inp.onchange = () => (rec[col] = inp.checked)
+        } else {
+          inp.type = type === 'number' ? 'number' : 'text'
+          inp.value = rec[col] ?? ''
+          inp.oninput = () =>
+            (rec[col] = type === 'number' && inp.value !== '' ? Number(inp.value) : inp.value)
+        }
+        return inp
+      }
+
+      function render() {
+        const wrap = $('tableWrap')
+        if (!columns.length) {
+          wrap.innerHTML = '<p class="muted">Empty file — add a field, then a row.</p>'
+          return
+        }
+        const table = document.createElement('table')
+        const head = document.createElement('tr')
+        columns.forEach((c) => {
+          const th = document.createElement('th')
+          th.textContent = c
+          head.appendChild(th)
+        })
+        head.appendChild(document.createElement('th'))
+        const thead = document.createElement('thead')
+        thead.appendChild(head)
+        table.appendChild(thead)
+
+        const tbody = document.createElement('tbody')
+        records.forEach((rec, i) => {
+          const tr = document.createElement('tr')
+          columns.forEach((c) => {
+            const td = document.createElement('td')
+            if (types[c] === 'boolean') td.className = 'center'
+            td.appendChild(cellInput(rec, c))
+            tr.appendChild(td)
+          })
+          const tdDel = document.createElement('td')
+          tdDel.className = 'center'
+          const del = document.createElement('button')
+          del.textContent = '✕'
+          del.className = 'danger'
+          del.onclick = () => {
+            records.splice(i, 1)
+            render()
+          }
+          tdDel.appendChild(del)
+          tr.appendChild(tdDel)
+          tbody.appendChild(tr)
+        })
+        table.appendChild(tbody)
+        wrap.innerHTML = ''
+        wrap.appendChild(table)
+      }
+
+      $('addRowBtn').onclick = () => {
+        const blank = {}
+        columns.forEach(
+          (c) => (blank[c] = types[c] === 'boolean' ? false : types[c] === 'number' ? 0 : ''),
+        )
+        records.push(blank)
+        render()
+      }
+
+      $('addFieldForm').onsubmit = (e) => {
+        e.preventDefault()
+        const name = $('addFieldName').value.trim()
+        if (!name || columns.includes(name)) return
+        columns.push(name)
+        types[name] = 'string'
+        records.forEach((r) => (r[name] ??= ''))
+        $('addFieldName').value = ''
+        render()
+      }
+
+      $('saveBtn').onclick = async () => {
+        try {
+          await api('/api/data/' + file, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(records),
+          })
+          toast('Saved ' + file)
+        } catch (err) {
+          toast(err.message, false)
+        }
+      }
+
+      $('delFileBtn').onclick = async () => {
+        if (!confirm('Delete ' + file + '?')) return
+        try {
+          await api('/api/data/' + file, { method: 'DELETE' })
+          toast('Deleted ' + file)
+          file = null
+          records = []
+          columns = []
+          $('current').textContent = 'Select a file →'
+          $('saveBtn').disabled = $('delFileBtn').disabled = true
+          $('toolbar').hidden = true
+          $('tableWrap').innerHTML = '<p class="muted">Pick a file on the left to edit it.</p>'
+          loadFiles()
+        } catch (err) {
+          toast(err.message, false)
+        }
+      }
+
+      $('newFileForm').onsubmit = async (e) => {
+        e.preventDefault()
+        const name = $('newFileName').value.trim()
+        if (!name) return
+        try {
+          const { file: created } = await api('/api/files', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name }),
+          })
+          $('newFileName').value = ''
+          toast('Created ' + created)
+          openFile(created)
+        } catch (err) {
+          toast(err.message, false)
+        }
+      }
+
+      loadFiles()
+    </script>
+  </body>
+</html>

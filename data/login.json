@@ -1,0 +1,34 @@
+[
+  {
+    "TCID": "TC001",
+    "desc": "valid user logs in successfully",
+    "username": "standard_user",
+    "password": "secret_sauce",
+    "expectSuccess": true,
+    "error": ""
+  },
+  {
+    "TCID": "TC002",
+    "desc": "locked-out user is blocked",
+    "username": "locked_out_user",
+    "password": "secret_sauce",
+    "expectSuccess": false,
+    "error": "Sorry, this user has been locked out."
+  },
+  {
+    "TCID": "TC003",
+    "desc": "wrong password is rejected",
+    "username": "standard_user",
+    "password": "wrong_password",
+    "expectSuccess": false,
+    "error": "Username and password do not match"
+  },
+  {
+    "TCID": "TC004",
+    "desc": "empty credentials are rejected",
+    "username": "",
+    "password": "",
+    "expectSuccess": false,
+    "error": "Username is required"
+  }
+]

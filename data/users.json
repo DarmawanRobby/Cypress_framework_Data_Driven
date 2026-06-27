@@ -1,0 +1,30 @@
+[
+  {
+    "role": "standard",
+    "username": "standard_user",
+    "password": "secret_sauce",
+    "canLogin": true,
+    "error": ""
+  },
+  {
+    "role": "lockedOut",
+    "username": "locked_out_user",
+    "password": "secret_sauce",
+    "canLogin": false,
+    "error": "Sorry, this user has been locked out."
+  },
+  {
+    "role": "problem",
+    "username": "problem_user",
+    "password": "secret_sauce",
+    "canLogin": true,
+    "error": ""
+  },
+  {
+    "role": "performanceGlitch",
+    "username": "performance_glitch_user",
+    "password": "secret_sauce",
+    "canLogin": true,
+    "error": ""
+  }
+]

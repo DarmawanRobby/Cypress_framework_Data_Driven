@@ -1,0 +1,70 @@
+{
+  "name": "cypress-framework",
+  "version": "1.0.0",
+  "description": "Cypress E2E + Visual/A11y testing framework (TypeScript + Page Object Model)",
+  "type": "module",
+  "scripts": {
+    "cy:open": "cypress open",
+    "cy:run": "cypress run",
+    "open:dev": "cross-env CYPRESS_ENV=dev cypress open",
+    "open:staging": "cross-env CYPRESS_ENV=staging cypress open",
+    "test": "cross-env CYPRESS_ENV=dev cypress run",
+    "test:dev": "cross-env CYPRESS_ENV=dev cypress run",
+    "test:staging": "cross-env CYPRESS_ENV=staging cypress run",
+    "test:prod": "cross-env CYPRESS_ENV=prod cypress run",
+    "test:smoke": "cross-env CYPRESS_ENV=dev cypress run --env grepTags=@smoke",
+    "test:regression": "cross-env CYPRESS_ENV=dev cypress run --env grepTags=@regression",
+    "data": "node tools/data-server.mjs",
+    "data:types": "node scripts/gen-data-types.mjs",
+    "new:test": "node scripts/new-test.mjs",
+    "setup": "npm install && cypress verify && node scripts/check-env.mjs",
+    "report:open": "node scripts/open-report.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "clean": "rimraf cypress/reports cypress/videos",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,mjs,js}": [
+      "eslint --fix --no-warn-ignored",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "keywords": [
+    "cypress",
+    "e2e",
+    "typescript",
+    "pom",
+    "a11y",
+    "visual-regression"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@bahmutov/cy-grep": "^3.0.4",
+    "@eslint/js": "^10.0.1",
+    "@simonsmith/cypress-image-snapshot": "^10.0.4",
+    "@types/node": "^26.0.1",
+    "axe-core": "^4.12.1",
+    "cross-env": "^10.1.0",
+    "cypress": "^15.18.0",
+    "cypress-axe": "^1.7.0",
+    "cypress-mochawesome-reporter": "^4.0.2",
+    "dotenv": "^17.4.2",
+    "eslint": "^10.6.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-cypress": "^6.4.1",
+    "globals": "^17.7.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.8",
+    "prettier": "^3.8.5",
+    "rimraf": "^6.1.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.62.0"
+  }
+}
