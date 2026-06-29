@@ -12,6 +12,7 @@ Demo target: [saucedemo.com](https://www.saucedemo.com) — login + inventory fl
 4. [Scaffold a new test](#scaffold-a-new-test) · [Writing a test](#writing-a-test)
 5. [Tags & selective runs](#tags--selective-runs) · [Manual steps](#manual-steps-pin-ekyc-otp)
 6. [Data-driven tests](#data-driven-tests) · [Visual & A11y](#visual--a11y-notes)
+7. [Conventions & architecture](#conventions--architecture) — **read this if you're an AI agent or new contributor**
 
 ## Setup
 
@@ -313,3 +314,66 @@ See `cypress/e2e/data-helpers.cy.ts` for a runnable demo of each helper.
   machine-specific (font rendering differs across OSes) — run them on a consistent environment.
 - **A11y:** `cy.checkAccessibility(context?, options?)` injects axe and asserts.
   Gate by severity via `includedImpacts`; all violations are logged to the terminal.
+
+## Conventions & architecture
+
+> **If you're an AI agent generating code in this repo, this section is the rulebook.**
+> Follow it so new tests match the existing structure.
+
+### How it fits together (data flow)
+
+```
+data/*.json ──> support/data.ts (typed data() loader) ──> specs (cypress/e2e/*.cy.ts)
+   ▲                                                            │ compose
+   │ edited by                                                  ▼
+npm run data (browser UI)                            Page Objects (cypress/pages/*)
+                                                       │ only place selectors live
+data/env.json ──> config/env.ts (picks row by TEST_ENV) ──> baseUrl / Cypress.env()
+cypress.env.json (secrets) ──> secret() ──> support/api.ts (cy.request setup/teardown)
+```
+
+- **Test data + env config** live in `data/*.json` (arrays of objects). Specs read them through
+  the typed `data()` loader (`support/data.ts`), **not** `cy.fixture`. The editor and tests share
+  the same files.
+- **Specs** compose **Page Objects** — a spec describes _behavior_; a page encapsulates
+  _interaction_. Selectors live only in pages.
+- **Env** is chosen by `TEST_ENV`; `config/env.ts` reads the matching row from `data/env.json`.
+  **Secrets** come from `cypress.env.json` (gitignored) via `secret()`.
+
+### Rules — do
+
+- Put selectors **only** in Page Objects; expose intent-revealing methods that `return this`.
+- Use `cy.getBySel('x')` for `data-test` hooks.
+- Read data with `data<T>('name')` / `findIn<T>` / `filterIn<T>` — always pass the generic `<T>`.
+- Tag every `it()`: `@smoke` (critical happy path) or `@regression`; `@manual` / `@visual` for those.
+- Derive data-driven test titles from a stable field (`user.role`, `tc.TCID`).
+- Use `support/api.ts` for setup/teardown of state you aren't testing through the UI.
+- Run `npm run data:types` after adding/removing a `data/*.json` file.
+- **Before done:** `npm run typecheck && npm run lint && npm test` — all green.
+
+### Rules — don't
+
+- Don't put test data in specs or a `fixtures/` folder — it goes in `data/`.
+- Don't use `cy.fixture` to drive `it()` generation (async — use `data()`).
+- Don't use `CYPRESS_ENV` (reserved prefix) — use `TEST_ENV`.
+- Don't commit secrets — use `cypress.env.json`.
+- Don't hand-edit `cypress/support/data-files.d.ts` (auto-generated).
+- Don't bypass the pre-commit hook with `--no-verify` unless intentional.
+
+### Gotchas — don't reintroduce
+
+- Grep is **`@bahmutov/cy-grep`**, NOT `@cypress/grep` v6 (broken `--expose`). Tags need **both**
+  `cyGrepPlugin(config)` (in `cypress.config.ts`) and `registerCyGrep()` (in `support/e2e.ts`).
+- Visual lib is **`@simonsmith/cypress-image-snapshot` v10** → `cy.matchImageSnapshot` (not the
+  old `compareSnapshot`); baselines go to `cypress/snapshots/` via `customSnapshotsDir`.
+- `package.json` is `"type": "module"` → no `__dirname` (use `process.cwd()`); tsconfig uses
+  `moduleResolution: "bundler"`.
+
+### Add a new test (build order)
+
+1. (data-driven) add `data/<name>.json` + a type in `support/types.ts`
+2. Page Object in `cypress/pages/` (extends `BasePage`)
+3. Spec in `cypress/e2e/` (compose page + `data()`, tag the `it()`)
+4. `npm run typecheck && npm run lint && npm test`
+
+Or scaffold steps 1–3: `npm run new:test -- <Name> [--data]`.
