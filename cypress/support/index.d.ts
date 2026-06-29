@@ -27,6 +27,13 @@ declare global {
         selector: string,
         options?: Partial<Loggable & Timeoutable & Withinable & Shadow>,
       ): Chainable<JQuery<HTMLElement>>
+
+      /**
+       * Pause for a manual step (PIN, eKYC, OTP). Interactive only — fails fast
+       * in headless. Use on `@manual`-tagged specs.
+       * @example cy.manualStep('Enter the PIN sent to your phone, then resume')
+       */
+      manualStep(instruction: string): Chainable<void>
     }
   }
 }

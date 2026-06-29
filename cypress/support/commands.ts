@@ -6,6 +6,27 @@ Cypress.Commands.add('getBySel', (selector: string, options?) =>
 )
 
 /**
+ * Pause for a human to complete a step that can't be automated (PIN, eKYC, OTP).
+ * Interactive (`cypress open`) → pauses; do the step, then press ▶ Resume.
+ * Headless (`cypress run`) → fails fast, so a manual step never silently passes.
+ * Tag such specs `@manual` — they're excluded from default/CI runs.
+ */
+Cypress.Commands.add('manualStep', (instruction: string) => {
+  const banner = `🖐 MANUAL STEP — ${instruction}`
+  Cypress.log({ name: 'manualStep', message: banner })
+
+  if (!Cypress.config('isInteractive')) {
+    throw new Error(
+      `${banner}\nManual steps need interactive mode (cypress open). ` +
+        `Tag this spec { tags: ['@manual'] } and run it locally.`,
+    )
+  }
+
+  cy.task('log', `\n  ${banner}\n  → Do it in the browser, then click ▶ (Resume).\n`)
+  cy.pause()
+})
+
+/**
  * Log in via the UI and land on the inventory page.
  *
  * Note: this demo app (saucedemo) uses pure client-side routing — protected

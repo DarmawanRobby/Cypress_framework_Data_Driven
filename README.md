@@ -41,6 +41,7 @@ Day-to-day commands:
 | `npm test`                               | Full suite, headless, dev env                                          |
 | `npm run open:dev`                       | Interactive runner (pick specs, time-travel, debug)                    |
 | `npm run test:smoke` / `test:regression` | Run only `@smoke` / `@regression` tagged tests                         |
+| `npm run test:manual`                    | Open GUI for `@manual` specs (human steps like PIN/eKYC)               |
 | `npm run test:staging` / `test:prod`     | Run against another environment                                        |
 | `npm run data`                           | Launch the test-data editor UI                                         |
 | `npm run data:types`                     | Regenerate `data('...')` autocomplete types (after adding a data file) |
@@ -169,6 +170,28 @@ CI runs `@smoke` on PRs (fast feedback) and the full suite on pushes to `main`.
 
 > Requires both the plugin (`setupNodeEvents`) and `registerCyGrep()` in `support/e2e.ts` —
 > the plugin bridges `--env grepTags` into the runner.
+
+## Manual steps (PIN, eKYC, OTP)
+
+For steps a human must do, pause the test with `cy.manualStep()` and tag the spec `@manual`:
+
+```ts
+describe('Login with eKYC', { tags: ['@manual'] }, () => {
+  it('verifies identity', () => {
+    login.visit().login('user', 'pass')
+    cy.manualStep('Complete eKYC in the browser, then press ▶ Resume')
+    dashboard.assertLoaded()
+  })
+})
+```
+
+```bash
+npm run test:manual    # opens the GUI filtered to @manual — do the step, then Resume
+```
+
+- **Interactive** (`cypress open`): pauses; you do the step, then resume.
+- **Headless** (`cypress run`): fails fast with a clear message — a manual step never silently passes.
+- `@manual` specs are **excluded from `npm test` and CI** (`grepTags=-@manual`), so they never block the pipeline.
 
 ## Auth & test data
 
