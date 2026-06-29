@@ -31,3 +31,9 @@ export const byRole = (users: UserRoster, role: string): User => {
   if (!user) throw new Error(`No user with role "${role}" in roster`)
   return user
 }
+
+/** One row of data/cart.json — a product to add to the cart. */
+export interface CartRow {
+  id: string // product slug used in the add-to-cart data-test hook
+  name: string // display name shown in the cart
+}

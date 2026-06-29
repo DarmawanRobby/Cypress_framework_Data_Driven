@@ -24,6 +24,12 @@ export class InventoryPage extends BasePage {
     return this
   }
 
+  /** Add a product to the cart by its slug, e.g. 'sauce-labs-backpack'. */
+  addToCartById(id: string): this {
+    cy.getBySel(`add-to-cart-${id}`).click()
+    return this
+  }
+
   assertCartCount(count: number): this {
     cy.get(this.el.cartBadge).should('have.text', String(count))
     return this
