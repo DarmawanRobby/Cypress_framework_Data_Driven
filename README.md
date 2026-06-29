@@ -42,6 +42,7 @@ Day-to-day commands:
 | `npm run open:dev`                       | Interactive runner (pick specs, time-travel, debug)                    |
 | `npm run test:smoke` / `test:regression` | Run only `@smoke` / `@regression` tagged tests                         |
 | `npm run test:manual`                    | Open GUI for `@manual` specs (human steps like PIN/eKYC)               |
+| `npm run test:visual`                    | Run `@visual` regression specs (baselines under `cypress/snapshots/`)  |
 | `npm run test:staging` / `test:prod`     | Run against another environment                                        |
 | `npm run data`                           | Launch the test-data editor UI                                         |
 | `npm run data:types`                     | Regenerate `data('...')` autocomplete types (after adding a data file) |
@@ -253,7 +254,9 @@ See `cypress/e2e/data-helpers.cy.ts` for a runnable demo of each helper.
 
 ## Visual & A11y notes
 
-- **Visual:** first run creates baselines under `cypress/snapshots/` (commit them).
-  Diffs land in `__diff_output__/` (gitignored). Threshold: 2% (`support/e2e.ts`).
+- **Visual:** tag specs `@visual` and run `npm run test:visual`. First run creates baselines
+  under `cypress/snapshots/` (**commit them**); diffs land in `__diff_output__/` (gitignored).
+  Threshold: 2% (`support/e2e.ts`). Excluded from default/CI runs because baselines are
+  machine-specific (font rendering differs across OSes) — run them on a consistent environment.
 - **A11y:** `cy.checkAccessibility(context?, options?)` injects axe and asserts.
   Gate by severity via `includedImpacts`; all violations are logged to the terminal.

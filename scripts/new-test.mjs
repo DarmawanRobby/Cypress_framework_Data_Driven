@@ -8,6 +8,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { execFileSync } from 'node:child_process'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const args = process.argv.slice(2)
@@ -66,6 +67,8 @@ if (dataDriven) {
     )
     created.push(`${TypesFile} (+${pascal}Row)`)
   }
+  // 5. Regenerate the DataFile union so data('<kebab>') is valid immediately.
+  execFileSync('node', [join(ROOT, 'scripts', 'gen-data-types.mjs')], { stdio: 'inherit' })
 } else {
   write(
     SpecFile,
