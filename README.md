@@ -4,28 +4,43 @@ E2E + Visual + Accessibility testing framework. **TypeScript · Page Object Mode
 
 Demo target: [saucedemo.com](https://www.saucedemo.com) — login + inventory flow. Repoint via `data/env.json`.
 
-## Quick start
+## Contents
 
-**Prerequisites:** Node LTS (see `.nvmrc` — run `nvm use`), npm.
+1. [Setup](#setup) · [Usage](#usage)
+2. [Stack](#stack) · [Structure](#structure)
+3. [Test data editor](#test-data-editor) · [Environments](#environments)
+4. [Scaffold a new test](#scaffold-a-new-test) · [Writing a test](#writing-a-test)
+5. [Tags & selective runs](#tags--selective-runs) · [Manual steps](#manual-steps-pin-ekyc-otp)
+6. [Data-driven tests](#data-driven-tests) · [Visual & A11y](#visual--a11y-notes)
+
+## Setup
+
+**Prerequisites:** [Node LTS](https://nodejs.org) (the version in `.nvmrc`), npm, Git.
 
 ```bash
-# 1. One-command bootstrap: install deps + Cypress binary + check the env is reachable
+# 1. Clone
+git clone https://github.com/DarmawanRobby/Cypress_framework_Data_Driven.git
+cd Cypress_framework_Data_Driven
+
+# 2. Match the Node version (optional, if you use nvm)
+nvm use
+
+# 3. Bootstrap: installs deps + the Cypress binary + checks the env is reachable
 npm run setup
-
-# 2. Run the whole suite headless against the dev env
-npm test
-
-# 3. Or open the interactive runner to watch tests in a browser
-npm run open:dev
-
-# 4. Open the HTML report after a run
-npm run report:open
 ```
 
-That's it — the demo specs run against saucedemo out of the box. To point at your own app,
-edit `baseUrl` in `data/env.json` (or `npm run data` for the UI).
+That's the whole setup. The demo specs run against saucedemo out of the box.
+To point at your own app, edit `baseUrl` in `data/env.json` (or `npm run data` for the UI).
 
-### Typical workflow (adding a feature test)
+## Usage
+
+```bash
+npm test               # run the whole suite headless (dev env)
+npm run open:dev       # interactive runner — watch tests in a browser, debug, time-travel
+npm run report:open    # open the HTML report after a headless run
+```
+
+Then add your own test:
 
 ```bash
 npm run new:test -- Cart --data   # 1. scaffold Page + spec (+ data file & type)
@@ -34,7 +49,7 @@ npm run data                       # 2. fill test data in the browser UI
 npm run typecheck && npm run lint && npm test   # 4. verify before committing
 ```
 
-Day-to-day commands:
+### All commands
 
 | Command                                  | What it does                                                           |
 | ---------------------------------------- | ---------------------------------------------------------------------- |
@@ -63,6 +78,8 @@ Reports land in `cypress/reports/index.html` after a headless run.
 | Visual        | @simonsmith/cypress-image-snapshot  |
 | Reporting     | cypress-mochawesome-reporter (HTML) |
 | Quality       | ESLint + Prettier                   |
+| Tagging       | @bahmutov/cy-grep                   |
+| Git hooks     | husky + lint-staged (pre-commit)    |
 | CI            | GitHub Actions                      |
 
 ## Structure
@@ -70,25 +87,30 @@ Reports land in `cypress/reports/index.html` after a headless run.
 ```
 data/                 # ← single source of test data + env config (JSON, committed)
   env.json            # one row per environment (baseUrl/apiUrl) — editable in the UI
-  users.json
+  users.json          # user roster (roster-driven specs)
+  login.json          # login test cases (test-case-driven specs)
 config/
   env.ts              # env loader (reads data/env.json, picks row by CYPRESS_ENV)
 tools/
   data-server.mjs     # zero-dep local server for the data editor
   data-editor.html    # browser UI to add/edit/delete data
+templates/            # skeletons used by `npm run new:test`
+scripts/              # setup, data:types, new:test, report:open helpers
 cypress/
   e2e/                # *.cy.ts specs
   pages/              # Page Objects (BasePage + per-page classes)
-  support/            # commands.ts, e2e.ts, types.ts, custom command types
+  support/            # commands.ts, e2e.ts, types.ts, data.ts, *.d.ts
   reports/            # HTML report + screenshots (gitignored)
   snapshots/          # visual baselines (committed)
-cypress.config.ts     # fixturesFolder -> data/
+cypress.config.ts
+.github/ · .husky/    # CI workflow · pre-commit hook
+BACKLOG.md            # tracked follow-up improvements
 ```
 
 ## Test data editor
 
-All test data lives in `data/*.json` (each file is an **array of objects**) and is read by
-Cypress via `cy.fixture<T>('<file>')` (`fixturesFolder` points at `data/`).
+All test data lives in `data/*.json` (each file is an **array of objects**) and is read in specs
+through the typed `data()` loader (see [Data-driven tests](#data-driven-tests)).
 
 Edit it through a browser UI — no manual JSON editing needed:
 
@@ -198,8 +220,8 @@ npm run test:manual    # opens the GUI filtered to @manual — do the step, then
 
 - `cy.login(username, password)` performs a UI login and lands on the inventory page.
 - Users live in `data/users.json`, typed via `cypress/support/types.ts`
-  (`User` / `UserRoster`). Load with `cy.fixture<UserRoster>('users')`, look up with
-  `byRole(users, 'standard')`.
+  (`User` / `UserRoster`). Load with `data<UserRoster>('users')` (or the pre-typed `users`
+  export), look up with `byRole(users, 'standard')`.
 - The roster is the seed for data-driven tests (see below).
 
 > saucedemo uses client-side routing (protected pages 404 on direct hit), so login goes

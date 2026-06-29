@@ -34,21 +34,14 @@ One mis-click in the UI can break config.
 
 ## Low
 
-### 4. Doc drift in README "Test data editor"
-
-That section still says data is read via `cy.fixture`. The real path is the `data()` auto-loader
-(`support/data.ts`); `cy.fixture` is no longer used.
-
-- **Fix:** update the section to describe `data()` / `findIn` / `filterIn`.
-
-### 5. `login.cy.ts` and `login-cases.cy.ts` overlap
+### 4. `login.cy.ts` and `login-cases.cy.ts` overlap
 
 Both exercise login with overlapping scenarios — kept on purpose to demo the two data-driven styles
 (roster-driven vs test-case-driven). In a real suite, pick one.
 
 - **Fix:** consolidate when wiring a real app.
 
-### 6. No `engines` field in `package.json`
+### 5. No `engines` field in `package.json`
 
 `.nvmrc` pins Node for `nvm` users, but `npm install` won't warn on a wrong Node version.
 
