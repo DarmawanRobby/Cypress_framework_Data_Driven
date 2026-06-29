@@ -1,11 +1,11 @@
 // Verifies the active environment's baseUrl is reachable (fast fail before a run).
-//   node scripts/check-env.mjs   (honours CYPRESS_ENV, default dev)
+//   node scripts/check-env.mjs   (honours TEST_ENV, default dev)
 import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const name = process.env.CYPRESS_ENV ?? 'dev'
+const name = process.env.TEST_ENV ?? 'dev'
 const envs = JSON.parse(readFileSync(join(ROOT, 'data', 'env.json'), 'utf8'))
 const env = envs.find((e) => e.env === name)
 

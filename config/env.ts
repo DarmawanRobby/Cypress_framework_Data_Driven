@@ -5,7 +5,7 @@ import * as dotenv from 'dotenv'
 dotenv.config()
 
 export interface EnvConfig {
-  /** Environment key, matched against CYPRESS_ENV. */
+  /** Environment key, matched against TEST_ENV. */
   env: string
   baseUrl: string
   apiUrl?: string
@@ -14,11 +14,11 @@ export interface EnvConfig {
 
 /**
  * Loads the matching environment row from data/env.json (one object per env).
- * Selected via CYPRESS_ENV (default: dev). Any value can be overridden at
+ * Selected via TEST_ENV (default: dev). Any value can be overridden at
  * runtime, e.g. BASE_URL=... overrides baseUrl. Edit envs via `npm run data`.
  */
 export function loadEnv(): EnvConfig {
-  const name = process.env.CYPRESS_ENV ?? 'dev'
+  const name = process.env.TEST_ENV ?? 'dev'
   const file = path.resolve(process.cwd(), 'data', 'env.json')
 
   if (!fs.existsSync(file)) {

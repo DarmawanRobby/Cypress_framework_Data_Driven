@@ -90,7 +90,7 @@ data/                 # ← single source of test data + env config (JSON, commi
   users.json          # user roster (roster-driven specs)
   login.json          # login test cases (test-case-driven specs)
 config/
-  env.ts              # env loader (reads data/env.json, picks row by CYPRESS_ENV)
+  env.ts              # env loader (reads data/env.json, picks row by TEST_ENV)
 tools/
   data-server.mjs     # zero-dep local server for the data editor
   data-editor.html    # browser UI to add/edit/delete data
@@ -124,11 +124,11 @@ as checkboxes, numbers as number inputs, types inferred from existing values.
 
 ## Environments
 
-Switch with `CYPRESS_ENV` (`dev` | `staging` | `prod`). Each environment is a row in
+Switch with `TEST_ENV` (`dev` | `staging` | `prod`). Each environment is a row in
 `data/env.json` (`baseUrl` / `apiUrl`), editable via `npm run data`, and overridable at runtime:
 
 ```bash
-CYPRESS_ENV=staging BASE_URL=https://my-app.local npm test
+TEST_ENV=staging BASE_URL=https://my-app.local npm test
 ```
 
 Copy `.env.example` → `.env` for local overrides.
