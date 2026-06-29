@@ -8,7 +8,7 @@ Demo target: [saucedemo.com](https://www.saucedemo.com) — login + inventory fl
 
 1. [Setup](#setup) · [Usage](#usage)
 2. [Stack](#stack) · [Structure](#structure)
-3. [Test data editor](#test-data-editor) · [Environments](#environments)
+3. [Test data editor](#test-data-editor) · [Environments](#environments) · [Secrets & API](#secrets--api-helper)
 4. [Scaffold a new test](#scaffold-a-new-test) · [Writing a test](#writing-a-test)
 5. [Tags & selective runs](#tags--selective-runs) · [Manual steps](#manual-steps-pin-ekyc-otp)
 6. [Data-driven tests](#data-driven-tests) · [Visual & A11y](#visual--a11y-notes)
@@ -132,6 +132,37 @@ TEST_ENV=staging BASE_URL=https://my-app.local npm test
 ```
 
 Copy `.env.example` → `.env` for local overrides.
+
+## Secrets & API helper
+
+**Secrets** (credentials, tokens) go in `cypress.env.json` (gitignored) — never in code or `data/`:
+
+```bash
+cp cypress.env.example.json cypress.env.json   # then fill it in
+```
+
+Cypress auto-loads it into `Cypress.env()`. Read it typed via `secret()`:
+
+```ts
+import { secret } from '../support/secrets'
+secret('apiPassword') // typed from cypress.env.json
+```
+
+**API helper** — drive state through the API instead of the UI where you can (faster, less
+flaky). `support/api.ts` wraps `cy.request` (base URL from `data/env.json`, bearer token from
+secrets):
+
+```ts
+import { api, auth } from '../support/api'
+import { secret } from '../support/secrets'
+
+before(() => auth.login(secret('apiUser')!, secret('apiPassword')!)) // cached programmatic login
+api.post('/cart', { items: [] }) // seed state for a test
+api.del('/cart/123') // teardown
+```
+
+> `auth.login` is a **skeleton** — adapt the endpoint and how the token is persisted
+> (localStorage/cookie) to your app. Use API setup for state you don't want to test through the UI.
 
 ## Scaffold a new test
 
