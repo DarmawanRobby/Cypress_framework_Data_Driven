@@ -2,13 +2,29 @@
 // and rejects typos. Run after adding/removing a data/*.json file:
 //   npm run data:types
 import { readdirSync, writeFileSync } from 'node:fs'
-import { join, dirname } from 'node:path'
+import { join, dirname, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const files = readdirSync(join(ROOT, 'data'))
-  .filter((f) => f.endsWith('.json'))
-  .map((f) => f.replace(/\.json$/, ''))
+const DATA_DIR = join(ROOT, 'data')
+
+function walk(dir) {
+  let found = []
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name)
+    if (entry.isDirectory()) found = found.concat(walk(full))
+    else if (entry.isFile() && entry.name.endsWith('.json')) found.push(full)
+  }
+  return found
+}
+
+const files = walk(DATA_DIR)
+  .map((f) =>
+    relative(DATA_DIR, f)
+      .split(sep)
+      .join('/')
+      .replace(/\.json$/, ''),
+  )
   .sort()
 
 const union = files.length ? files.map((f) => `'${f}'`).join(' | ') : 'string'

@@ -9,7 +9,7 @@ import type { UserRoster } from './types'
 const req = require as unknown as {
   context(dir: string, deep?: boolean, re?: RegExp): { keys(): string[]; (id: string): unknown }
 }
-const ctx = req.context('../../data', false, /\.json$/)
+const ctx = req.context('../../data', true, /\.json$/)
 
 const store: Record<string, unknown> = {}
 for (const key of ctx.keys()) {
