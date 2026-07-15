@@ -117,6 +117,32 @@
       .icon-btn.danger:hover {
         color: var(--danger);
       }
+      #contextMenu {
+        position: fixed;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 4px;
+        min-width: 170px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+        z-index: 30;
+      }
+      #contextMenu button {
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: transparent;
+        border: 1px solid transparent;
+        padding: 8px 10px;
+        border-radius: 6px;
+      }
+      #contextMenu button:hover {
+        background: #262c3a;
+        border-color: transparent;
+      }
+      #contextMenu button.danger {
+        color: var(--danger);
+      }
       main {
         padding: 20px 24px;
         overflow: auto;
@@ -348,6 +374,8 @@
       </div>
     </div>
 
+    <div id="contextMenu" hidden></div>
+
     <script>
       let file = null
       let records = []
@@ -423,6 +451,50 @@
         showModal(message, { withInput: true, defaultValue })
       const showConfirm = (message) => showModal(message)
 
+      let closeMenuOnDocClick = null
+      let closeMenuOnKeydown = null
+      function closeContextMenu() {
+        const menu = $('contextMenu')
+        menu.hidden = true
+        if (closeMenuOnDocClick) document.removeEventListener('click', closeMenuOnDocClick)
+        if (closeMenuOnKeydown) document.removeEventListener('keydown', closeMenuOnKeydown)
+        closeMenuOnDocClick = null
+        closeMenuOnKeydown = null
+      }
+
+      // items: [{ label, danger, onClick }]
+      function openContextMenu(anchorEl, items) {
+        closeContextMenu()
+        const menu = $('contextMenu')
+        menu.innerHTML = ''
+        items.forEach(({ label, danger, onClick }) => {
+          const btn = document.createElement('button')
+          btn.textContent = label
+          if (danger) btn.className = 'danger'
+          btn.onclick = () => {
+            closeContextMenu()
+            onClick()
+          }
+          menu.appendChild(btn)
+        })
+        const rect = anchorEl.getBoundingClientRect()
+        const menuWidth = 170
+        const left = Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8))
+        menu.style.left = left + 'px'
+        menu.style.top = rect.bottom + 4 + 'px'
+        menu.hidden = false
+
+        closeMenuOnDocClick = (e) => {
+          if (!menu.contains(e.target)) closeContextMenu()
+        }
+        closeMenuOnKeydown = (e) => {
+          if (e.key === 'Escape') closeContextMenu()
+        }
+        // Deferred so the click that opened the menu doesn't immediately close it.
+        setTimeout(() => document.addEventListener('click', closeMenuOnDocClick), 0)
+        document.addEventListener('keydown', closeMenuOnKeydown)
+      }
+
       async function loadFiles() {
         const tree = await api('/api/tree')
         allFolders = tree.folders
@@ -488,25 +560,20 @@
             icon.onclick = openClose
             label.onclick = openClose
 
-            const ren = document.createElement('button')
-            ren.className = 'icon-btn'
-            ren.textContent = '✎'
-            ren.title = 'Rename / move folder'
-            ren.onclick = (e) => {
+            const menuBtn = document.createElement('button')
+            menuBtn.className = 'icon-btn'
+            menuBtn.textContent = '⋮'
+            menuBtn.title = 'Folder actions'
+            menuBtn.onclick = (e) => {
               e.stopPropagation()
-              renameFolder(fp)
+              openContextMenu(menuBtn, [
+                { label: '+ Add file', onClick: () => addFileToFolder(fp) },
+                { label: '✎ Rename / Move', onClick: () => renameFolder(fp) },
+                { label: '✕ Delete', danger: true, onClick: () => deleteFolder(fp) },
+              ])
             }
 
-            const del = document.createElement('button')
-            del.className = 'icon-btn danger'
-            del.textContent = '✕'
-            del.title = 'Delete folder (must be empty)'
-            del.onclick = (e) => {
-              e.stopPropagation()
-              deleteFolder(fp)
-            }
-
-            row.append(toggle, icon, label, ren, del)
+            row.append(toggle, icon, label, menuBtn)
             frag.appendChild(row)
             if (isOpen) frag.appendChild(renderNode(fp, depth + 1))
           })
@@ -521,7 +588,20 @@
             const label = document.createElement('span')
             label.className = 'label'
             label.textContent = fp.split('/').pop()
-            row.append(icon, label)
+
+            const menuBtn = document.createElement('button')
+            menuBtn.className = 'icon-btn'
+            menuBtn.textContent = '⋮'
+            menuBtn.title = 'File actions'
+            menuBtn.onclick = (e) => {
+              e.stopPropagation()
+              openContextMenu(menuBtn, [
+                { label: '✎ Rename / Move', onClick: () => renameFile(fp) },
+                { label: '✕ Delete', danger: true, onClick: () => deleteFile(fp) },
+              ])
+            }
+
+            row.append(icon, label, menuBtn)
             row.onclick = () => openFile(fp)
             frag.appendChild(row)
           })
@@ -590,6 +670,65 @@
           await api('/api/folders/' + fp, { method: 'DELETE' })
           expanded.delete(fp)
           toast('Deleted folder ' + fp)
+          loadFiles()
+        } catch (err) {
+          toast(err.message, false)
+        }
+      }
+
+      async function addFileToFolder(folderPath) {
+        const name = await showPrompt(`New file in ${folderPath}/ (name, .json optional):`)
+        if (!name) return
+        try {
+          const { file: created } = await api('/api/files', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: `${folderPath}/${name}` }),
+          })
+          expanded.add(folderPath)
+          toast('Created ' + created)
+          openFile(created)
+        } catch (err) {
+          toast(err.message, false)
+        }
+      }
+
+      // Renames/moves any file — the one open in the editor or any other in the tree.
+      async function renameFile(fp) {
+        const to = await showPrompt('Rename/move file to (path relative to data/):', fp)
+        if (!to || to === fp) return
+        try {
+          await api('/api/entries', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from: fp, to, type: 'file' }),
+          })
+          toast('Renamed to ' + to)
+          if (fp === file) {
+            openFile(to)
+          } else {
+            loadFiles()
+          }
+        } catch (err) {
+          toast(err.message, false)
+        }
+      }
+
+      // Deletes any file — the one open in the editor or any other in the tree.
+      async function deleteFile(fp) {
+        if (!(await showConfirm('Delete ' + fp + '?'))) return
+        try {
+          await api('/api/data/' + fp, { method: 'DELETE' })
+          toast('Deleted ' + fp)
+          if (fp === file) {
+            file = null
+            records = []
+            columns = []
+            $('current').textContent = 'Select a file →'
+            $('saveBtn').disabled = $('renameFileBtn').disabled = $('delFileBtn').disabled = true
+            $('toolbar').hidden = true
+            $('tableWrap').innerHTML = '<p class="muted">Pick a file on the left to edit it.</p>'
+          }
           loadFiles()
         } catch (err) {
           toast(err.message, false)
@@ -759,39 +898,8 @@
         }
       }
 
-      $('renameFileBtn').onclick = async () => {
-        const to = await showPrompt('Rename/move file to (path relative to data/):', file)
-        if (!to || to === file) return
-        try {
-          await api('/api/entries', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ from: file, to, type: 'file' }),
-          })
-          toast('Renamed to ' + to)
-          openFile(to)
-        } catch (err) {
-          toast(err.message, false)
-        }
-      }
-
-      $('delFileBtn').onclick = async () => {
-        if (!(await showConfirm('Delete ' + file + '?'))) return
-        try {
-          await api('/api/data/' + file, { method: 'DELETE' })
-          toast('Deleted ' + file)
-          file = null
-          records = []
-          columns = []
-          $('current').textContent = 'Select a file →'
-          $('saveBtn').disabled = $('renameFileBtn').disabled = $('delFileBtn').disabled = true
-          $('toolbar').hidden = true
-          $('tableWrap').innerHTML = '<p class="muted">Pick a file on the left to edit it.</p>'
-          loadFiles()
-        } catch (err) {
-          toast(err.message, false)
-        }
-      }
+      $('renameFileBtn').onclick = () => renameFile(file)
+      $('delFileBtn').onclick = () => deleteFile(file)
 
       $('newFileForm').onsubmit = async (e) => {
         e.preventDefault()
