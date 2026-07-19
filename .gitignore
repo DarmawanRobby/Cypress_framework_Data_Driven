@@ -8,6 +8,7 @@ cypress.env.json
 *.log
 .DS_Store
 AGENTS.md
+BACKLOG.md
 CLAUDE.md
 GEMINI.md
 .github/copilot-instructions.md
