@@ -12,3 +12,5 @@ BACKLOG.md
 CLAUDE.md
 GEMINI.md
 .github/copilot-instructions.md
+cypress/pages/SecureAreaPage.ts
+data/test/
