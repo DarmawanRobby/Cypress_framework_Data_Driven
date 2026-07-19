@@ -7,3 +7,7 @@ cypress/snapshots/**/__diff_output__/
 cypress.env.json
 *.log
 .DS_Store
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.github/copilot-instructions.md
