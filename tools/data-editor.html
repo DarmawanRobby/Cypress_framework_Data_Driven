@@ -211,7 +211,8 @@
         margin-bottom: 14px;
       }
       input[type='text'],
-      input[type='number'] {
+      input[type='number'],
+      select {
         background: #0c0e12;
         border: 1px solid var(--line);
         color: var(--txt);
@@ -221,7 +222,8 @@
         width: 100%;
         transition: border-color 0.15s;
       }
-      input:focus {
+      input:focus,
+      select:focus {
         outline: none;
         border-color: var(--accent);
       }
@@ -243,6 +245,15 @@
         position: sticky;
         top: 0;
         z-index: 1;
+      }
+      .filter-row td {
+        background: #14171f;
+        padding: 3px 4px;
+      }
+      .filter-row input,
+      .filter-row select {
+        padding: 3px 5px;
+        font-size: 12px;
       }
       tbody tr:nth-child(even) {
         background: rgba(255, 255, 255, 0.025);
@@ -381,6 +392,7 @@
       let records = []
       let columns = []
       let types = {}
+      let columnFilters = {} // { colName: filter value ('' means no filter) }
       let allFolders = []
       let allFiles = []
       const expanded = new Set()
@@ -757,6 +769,7 @@
       function deriveSchema(rows) {
         columns = []
         types = {}
+        columnFilters = {}
         rows.forEach((r) =>
           Object.keys(r).forEach((k) => {
             if (!columns.includes(k)) columns.push(k)
@@ -807,30 +820,41 @@
         )
       }
 
-      function render() {
-        const wrap = $('tableWrap')
-        if (!columns.length) {
-          wrap.innerHTML = '<p class="muted">Empty file — add a field, then a row.</p>'
-          return
-        }
-        const term = $('rowSearch').value.trim().toLowerCase()
-        const visible = records
-          .map((rec, i) => ({ rec, i }))
-          .filter(({ rec }) => matchesRowSearch(rec, term))
-
-        const table = document.createElement('table')
-        const head = document.createElement('tr')
-        columns.forEach((c) => {
-          const th = document.createElement('th')
-          th.textContent = c
-          head.appendChild(th)
+      function matchesColumnFilters(rec) {
+        return columns.every((c) => {
+          const f = columnFilters[c]
+          if (!f) return true
+          if (types[c] === 'boolean') return String(!!rec[c]) === f
+          return String(rec[c] ?? '')
+            .toLowerCase()
+            .includes(f.toLowerCase())
         })
-        head.appendChild(document.createElement('th'))
-        const thead = document.createElement('thead')
-        thead.appendChild(head)
-        table.appendChild(thead)
+      }
 
-        const tbody = document.createElement('tbody')
+      // Distinct non-empty values for a column — used to offer a <select> filter when
+      // there aren't too many of them; falls back to free-text filtering otherwise.
+      function distinctValues(col) {
+        const seen = new Set()
+        records.forEach((r) => {
+          if (r[col] !== '' && r[col] != null) seen.add(r[col])
+        })
+        return [...seen].sort()
+      }
+
+      function visibleRows() {
+        const term = $('rowSearch').value.trim().toLowerCase()
+        return records
+          .map((rec, i) => ({ rec, i }))
+          .filter(({ rec }) => matchesRowSearch(rec, term) && matchesColumnFilters(rec))
+      }
+
+      // Rebuilds only <tbody> — called on every search/filter change so the filter
+      // controls in <thead> (esp. text inputs) never get destroyed mid-keystroke.
+      function renderRows() {
+        const tbody = document.querySelector('#tableWrap tbody')
+        if (!tbody) return
+        tbody.innerHTML = ''
+        const visible = visibleRows()
         visible.forEach(({ rec, i }) => {
           const tr = document.createElement('tr')
           columns.forEach((c) => {
@@ -852,15 +876,98 @@
           tr.appendChild(tdDel)
           tbody.appendChild(tr)
         })
-        table.appendChild(tbody)
+        if (!visible.length) {
+          const tr = document.createElement('tr')
+          const td = document.createElement('td')
+          td.colSpan = columns.length + 1
+          td.className = 'muted'
+          td.textContent = 'No rows match the current search/filter'
+          tr.appendChild(td)
+          tbody.appendChild(tr)
+        }
+      }
+
+      function filterControl(col) {
+        const current = columnFilters[col] ?? ''
+        let control
+        if (types[col] === 'boolean') {
+          control = document.createElement('select')
+          ;[
+            ['', 'All'],
+            ['true', 'true'],
+            ['false', 'false'],
+          ].forEach(([value, label]) => {
+            const opt = document.createElement('option')
+            opt.value = value
+            opt.textContent = label
+            control.appendChild(opt)
+          })
+        } else {
+          const options = distinctValues(col)
+          if (options.length && options.length <= 10) {
+            control = document.createElement('select')
+            const allOpt = document.createElement('option')
+            allOpt.value = ''
+            allOpt.textContent = 'All'
+            control.appendChild(allOpt)
+            options.forEach((v) => {
+              const opt = document.createElement('option')
+              opt.value = String(v)
+              opt.textContent = String(v)
+              control.appendChild(opt)
+            })
+          } else {
+            control = document.createElement('input')
+            control.type = 'text'
+            control.placeholder = 'filter…'
+          }
+        }
+        control.value = current
+        const onChange = () => {
+          columnFilters[col] = control.value
+          renderRows()
+        }
+        if (control.tagName === 'SELECT') control.onchange = onChange
+        else control.oninput = onChange
+        return control
+      }
+
+      // Builds <table><thead>(headers + filter row)</thead><tbody></tbody></table> once
+      // per schema/record-set change (open file, add/delete row, add field) — NOT on
+      // every filter keystroke, see renderRows().
+      function render() {
+        const wrap = $('tableWrap')
+        if (!columns.length) {
+          wrap.innerHTML = '<p class="muted">Empty file — add a field, then a row.</p>'
+          return
+        }
+        const table = document.createElement('table')
+
+        const head = document.createElement('tr')
+        columns.forEach((c) => {
+          const th = document.createElement('th')
+          th.textContent = c
+          head.appendChild(th)
+        })
+        head.appendChild(document.createElement('th'))
+
+        const filterRow = document.createElement('tr')
+        filterRow.className = 'filter-row'
+        columns.forEach((c) => {
+          const td = document.createElement('td')
+          td.appendChild(filterControl(c))
+          filterRow.appendChild(td)
+        })
+        filterRow.appendChild(document.createElement('td'))
+
+        const thead = document.createElement('thead')
+        thead.append(head, filterRow)
+        table.appendChild(thead)
+        table.appendChild(document.createElement('tbody'))
+
         wrap.innerHTML = ''
         wrap.appendChild(table)
-        if (!visible.length) {
-          const p = document.createElement('p')
-          p.className = 'muted'
-          p.textContent = `No rows match "${term}"`
-          wrap.appendChild(p)
-        }
+        renderRows()
       }
 
       $('addRowBtn').onclick = () => {
@@ -872,7 +979,7 @@
         render()
       }
 
-      $('rowSearch').oninput = render
+      $('rowSearch').oninput = renderRows
 
       $('addFieldForm').onsubmit = (e) => {
         e.preventDefault()

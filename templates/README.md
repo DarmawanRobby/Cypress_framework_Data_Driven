@@ -20,3 +20,9 @@ to their real location.
 - Page methods return `this` so calls chain.
 - Data is read with `data<T>('name')` — auto-loaded, no wiring.
 - Every `it()` carries a tag (`@smoke` for critical happy paths, else `@regression`).
+
+## Nested data files
+
+`npm run new:test -- <dir>/<Name> --data` puts the data file under `data/<dir>/` (e.g.
+`data/checkout/checkout-flow.json`) — Page/spec still land flat in `cypress/pages/` and
+`cypress/e2e/`, since only `data/` supports subfolders.

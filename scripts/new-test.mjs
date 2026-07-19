@@ -1,10 +1,14 @@
 // Scaffolds a new test from templates/.
 //   npm run new:test -- <Name> [--data]
+//   npm run new:test -- <dir>/<Name> --data   (data file nested under data/<dir>/)
 // Examples:
 //   npm run new:test -- Cart            → CartPage.ts + cart.cy.ts
 //   npm run new:test -- CheckoutFlow --data
 //       → CheckoutFlowPage.ts + checkout-flow.cy.ts (data-driven)
 //       + data/checkout-flow.json + CheckoutFlowRow type
+//   npm run new:test -- checkout/CheckoutFlow --data
+//       → same Page/spec (flat, as above) but data/checkout/checkout-flow.json —
+//         Page/spec stay flat since only data/ supports subfolders.
 import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -13,19 +17,32 @@ import { execFileSync } from 'node:child_process'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const args = process.argv.slice(2)
 const dataDriven = args.includes('--data')
-const rawName = args.find((a) => !a.startsWith('-'))
+const rawArg = args.find((a) => !a.startsWith('-'))
 
-if (!rawName) {
+if (!rawArg) {
   console.error('Usage: npm run new:test -- <Name> [--data]')
+  console.error('       npm run new:test -- <dir>/<Name> --data   (nested data file)')
+  process.exit(1)
+}
+
+// A '/' in the arg is a data subfolder prefix, not a Page/spec folder — only data/
+// supports subfolders, so the last segment is the actual PascalCase name.
+const segments = rawArg.split('/').filter(Boolean)
+const rawName = segments.pop()
+const dataDir = segments.join('/')
+
+if (dataDir && !dataDriven) {
+  console.error(`"${dataDir}/" is a data subfolder — it only applies with --data.`)
   process.exit(1)
 }
 
 const pascal = rawName.charAt(0).toUpperCase() + rawName.slice(1)
 const kebab = pascal.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
+const dataName = dataDir ? `${dataDir}/${kebab}` : kebab
 
 const PageFile = join(ROOT, 'cypress', 'pages', `${pascal}Page.ts`)
 const SpecFile = join(ROOT, 'cypress', 'e2e', `${kebab}.cy.ts`)
-const DataFile = join(ROOT, 'data', `${kebab}.json`)
+const DataFile = join(ROOT, 'data', `${dataName}.json`)
 const TypesFile = join(ROOT, 'cypress', 'support', 'types.ts')
 
 const created = []
@@ -54,7 +71,7 @@ if (dataDriven) {
     body('spec.data-driven.template.ts')
       .replaceAll('TemplatePage', `${pascal}Page`)
       .replaceAll('TemplateRow', `${pascal}Row`)
-      .replace("('TODO')", `('${kebab}')`)
+      .replace("('TODO')", `('${dataName}')`)
       .replace('TODO: feature (data-driven)', `${pascal} (data-driven)`),
   )
   // 3. Data file (seed one row so it runs)
@@ -63,11 +80,11 @@ if (dataDriven) {
   if (existsSync(TypesFile) && !readFileSync(TypesFile, 'utf8').includes(`${pascal}Row`)) {
     appendFileSync(
       TypesFile,
-      `\n/** One row of data/${kebab}.json. */\nexport interface ${pascal}Row {\n  id: string // stable key used in the test title\n  // TODO: add the fields your rows actually have\n}\n`,
+      `\n/** One row of data/${dataName}.json. */\nexport interface ${pascal}Row {\n  id: string // stable key used in the test title\n  // TODO: add the fields your rows actually have\n}\n`,
     )
     created.push(`${TypesFile} (+${pascal}Row)`)
   }
-  // 5. Regenerate the DataFile union so data('<kebab>') is valid immediately.
+  // 5. Regenerate the DataFile union so data('<name>') is valid immediately.
   execFileSync('node', [join(ROOT, 'scripts', 'gen-data-types.mjs')], { stdio: 'inherit' })
 } else {
   write(

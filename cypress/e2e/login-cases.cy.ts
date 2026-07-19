@@ -1,16 +1,16 @@
 import { LoginPage } from '../pages/LoginPage'
-import { InventoryPage } from '../pages/InventoryPage'
+import { SecureAreaPage } from '../pages/SecureAreaPage'
 import { data } from '../support/data'
 import type { LoginCase } from '../support/types'
 
 const login = new LoginPage()
-const inventory = new InventoryPage()
+const secure = new SecureAreaPage()
 
-// Test cases come straight from data/login.json — add a row via `npm run data`
-// and a new TCID test appears here automatically.
+// One test per row in data/login.json — add a TCID via `npm run data`
+// and a new test appears here automatically (no spec change).
 const cases = data<LoginCase[]>('login')
 
-describe('Login test cases (data-driven by TCID)', () => {
+describe('Login (data-driven by TCID)', () => {
   beforeEach(() => {
     login.visit()
   })
@@ -20,10 +20,18 @@ describe('Login test cases (data-driven by TCID)', () => {
     it(`${tc.TCID} — ${tc.desc}`, { tags }, () => {
       login.login(tc.username, tc.password)
       if (tc.expectSuccess) {
-        inventory.assertLoaded()
+        secure.assertLoaded()
       } else {
         login.assertError(tc.error ?? '')
       }
     })
   })
+
+  it(
+    'has no critical accessibility violations on the login page',
+    { tags: ['@regression'] },
+    () => {
+      login.checkA11y({ includedImpacts: ['critical'] })
+    },
+  )
 })

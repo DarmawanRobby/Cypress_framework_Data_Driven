@@ -1,9 +1,8 @@
-// Auto-loads every data/*.json at bundle time (webpack require.context):
-// drop a file in /data and read it with data('<name>') — no wiring here.
+// Auto-loads every data/**/*.json at bundle time (webpack require.context):
+// drop a file anywhere under /data and read it with data('<name>') — no wiring here.
 //
 // Static (not cy.fixture) so data is available at spec *load* time and can
 // drive data-driven `it()` generation. Same files the editor writes to.
-import type { UserRoster } from './types'
 
 // `require.context` is a webpack feature; type it locally to avoid global augmentation.
 const req = require as unknown as {
@@ -19,9 +18,10 @@ for (const key of ctx.keys()) {
 }
 
 /**
- * Read a whole dataset by file name (without `.json`). Caller supplies the type.
- * `DataFile` is auto-generated (`npm run data:types`) so names autocomplete.
- * @example const users = data<UserRoster>('users')
+ * Read a whole dataset by file name (without `.json`, nested paths included).
+ * Caller supplies the type. `DataFile` is auto-generated (`npm run data:types`)
+ * so names autocomplete.
+ * @example const cases = data<LoginCase[]>('login')
  */
 export function data<T>(name: DataFile): T {
   if (!(name in store)) {
@@ -32,7 +32,7 @@ export function data<T>(name: DataFile): T {
 
 /**
  * Find the first row in data/<name>.json matching the predicate. Throws if none.
- * @example findIn<User>('users', (u) => u.role === 'lockedOut')
+ * @example findIn<Product>('products', (p) => p.slug === 'shampoo')
  */
 export function findIn<T>(name: DataFile, predicate: (row: T) => boolean): T {
   const row = data<T[]>(name).find(predicate)
@@ -42,11 +42,8 @@ export function findIn<T>(name: DataFile, predicate: (row: T) => boolean): T {
 
 /**
  * Return all rows in data/<name>.json matching the predicate.
- * @example filterIn<User>('users', (u) => u.canLogin)
+ * @example filterIn<Product>('products', (p) => p.category === 'skin-care')
  */
 export function filterIn<T>(name: DataFile, predicate: (row: T) => boolean): T[] {
   return data<T[]>(name).filter(predicate)
 }
-
-/** Pre-typed convenience for the most-used dataset. */
-export const users = data<UserRoster>('users')

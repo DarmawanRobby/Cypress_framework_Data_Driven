@@ -2,7 +2,9 @@
 
 E2E + Visual + Accessibility testing framework. **TypeScript · Page Object Model · multi-env · HTML reports · CI-ready.**
 
-Demo target: [saucedemo.com](https://www.saucedemo.com) — login + inventory flow. Repoint via `data/env.json`.
+Target: [practicetestautomation.com](https://practicetestautomation.com/practice/) — a public
+practice site. The suite drives its **Test Login Page** (valid/invalid credential cases) end to
+end. Repoint via `data/env.json`.
 
 ## Contents
 
@@ -30,8 +32,9 @@ nvm use
 npm run setup
 ```
 
-That's the whole setup. The demo specs run against saucedemo out of the box.
-To point at your own app, edit `baseUrl` in `data/env.json` (or `npm run data` for the UI).
+That's the whole setup. The demo login specs run against practicetestautomation.com out of the box
+(`npm test`). To target your own app, edit `baseUrl` in `data/env.json` (or `npm run data` for the
+UI) and add specs — see [Scaffold a new test](#scaffold-a-new-test).
 
 ## Usage
 
@@ -87,14 +90,14 @@ Reports land in `cypress/reports/index.html` after a headless run.
 
 ```
 data/                 # ← single source of test data + env config (JSON, committed)
-  env.json            # one row per environment (baseUrl/apiUrl) — editable in the UI
-  users.json          # user roster (roster-driven specs)
-  login.json          # login test cases (test-case-driven specs)
+  env.json            # one row per environment (baseUrl/apiUrl) — editable in the UI, pinned at root
+  login.json          # login test cases (test-case-driven spec)
+  <folder>/*.json     # optional subfolders to organize data — data<T>('folder/name')
 config/
   env.ts              # env loader (reads data/env.json, picks row by TEST_ENV)
 tools/
   data-server.mjs     # zero-dep local server for the data editor
-  data-editor.html    # browser UI to add/edit/delete data
+  data-editor.html    # browser UI: folder tree, search, add/rename/move/delete data
 templates/            # skeletons used by `npm run new:test`
 scripts/              # setup, data:types, new:test, report:open helpers
 cypress/
@@ -110,8 +113,9 @@ BACKLOG.md            # tracked follow-up improvements
 
 ## Test data editor
 
-All test data lives in `data/*.json` (each file is an **array of objects**) and is read in specs
-through the typed `data()` loader (see [Data-driven tests](#data-driven-tests)).
+All test data lives in `data/**/*.json` (each file is an **array of objects**, optionally nested
+in subfolders) and is read in specs through the typed `data()` loader (see
+[Data-driven tests](#data-driven-tests)).
 
 Edit it through a browser UI — no manual JSON editing needed:
 
@@ -119,9 +123,19 @@ Edit it through a browser UI — no manual JSON editing needed:
 npm run data          # → http://localhost:5050
 ```
 
-The editor lists every `data/*.json` file and lets you add/edit/delete records and fields,
-create new files, and delete files — all changes write straight back to disk. Booleans render
-as checkboxes, numbers as number inputs, types inferred from existing values.
+The sidebar shows a collapsible folder tree with a search box for files and another for rows.
+Click **⋮** on a folder for **+ Add file** / **✎ Rename or Move** / **✕ Delete** (folders must be
+empty to delete); click **⋮** on a file for **✎ Rename or Move** / **✕ Delete**. New files/folders
+can also be created by typing a `dir/name` path in the **+ File** / **+ Folder** forms at the
+bottom — nesting is created automatically. Records and fields are edited inline: booleans render
+as checkboxes, numbers as number inputs, types inferred from existing values. All changes write
+straight back to disk.
+
+> `data/env.json` is pinned at the top level — the editor blocks renaming, moving, or deleting it
+> because `config/env.ts` hardcodes that path.
+
+**Adding a new file** (not just a new row)? Run `npm run data:types` afterward so
+`data<T>('name')` recognizes it — see [Data loader & helpers](#data-loader--helpers-supportdatats).
 
 ## Environments
 
@@ -174,11 +188,17 @@ npm run new:test -- Cart              # CartPage.ts + cart.cy.ts
 npm run new:test -- CheckoutFlow --data
 # → CheckoutFlowPage.ts + checkout-flow.cy.ts (data-driven)
 #   + data/checkout-flow.json (seeded) + CheckoutFlowRow type in support/types.ts
+
+npm run new:test -- checkout/CheckoutFlow --data
+# → same Page/spec as above (flat) but data/checkout/checkout-flow.json —
+#   a folder prefix only affects where the data file lands
 ```
 
 PascalCase the name; file/spec/data names are derived (`CheckoutFlow` → `checkout-flow`).
-Existing files are never overwritten. Then fill the `TODO`s and run the gates. Raw skeletons
-live in `templates/` (also copy-pasteable by hand).
+A `<dir>/<Name>` prefix nests **only the data file** (`data<T>('checkout/checkout-flow')`) —
+Page Objects and specs stay flat since only `data/` supports subfolders. Existing files are
+never overwritten. Then fill the `TODO`s and run the gates. Raw skeletons live in `templates/`
+(also copy-pasteable by hand).
 
 ## Writing a test
 
@@ -188,16 +208,13 @@ live in `templates/` (also copy-pasteable by hand).
 3. Write the spec in `cypress/e2e/` — chain page methods, assert outcomes.
 
 ```ts
-import { LoginPage } from '../pages/LoginPage'
-import { InventoryPage } from '../pages/InventoryPage'
+import { HomePage } from '../pages/HomePage'
 
-const login = new LoginPage()
-const inventory = new InventoryPage()
+const home = new HomePage()
 
-it('logs in', { tags: ['@smoke'] }, () => {
-  login.visit().login('standard_user', 'secret_sauce')
-  inventory.assertLoaded()
-  login.checkA11y({ includedImpacts: ['critical'] }) // a11y gate
+it('loads the homepage', { tags: ['@smoke'] }, () => {
+  home.visit().assertLoaded()
+  home.checkA11y({ includedImpacts: ['critical'] }) // a11y gate
 })
 ```
 
@@ -231,11 +248,11 @@ CI runs `@smoke` on PRs (fast feedback) and the full suite on pushes to `main`.
 For steps a human must do, pause the test with `cy.manualStep()` and tag the spec `@manual`:
 
 ```ts
-describe('Login with eKYC', { tags: ['@manual'] }, () => {
-  it('verifies identity', () => {
-    login.visit().login('user', 'pass')
-    cy.manualStep('Complete eKYC in the browser, then press ▶ Resume')
-    dashboard.assertLoaded()
+describe('Checkout with 3-D Secure', { tags: ['@manual'] }, () => {
+  it('pauses for a manual OTP step, then continues', () => {
+    checkout.visit().submitPayment(card)
+    cy.manualStep('Complete the 3-D Secure / OTP step in the browser, then press ▶ Resume')
+    checkout.assertOrderConfirmed()
   })
 })
 ```
@@ -250,61 +267,69 @@ npm run test:manual    # opens the GUI filtered to @manual — do the step, then
 
 ## Auth & test data
 
-- `cy.login(username, password)` performs a UI login and lands on the inventory page.
-- Users live in `data/users.json`, typed via `cypress/support/types.ts`
-  (`User` / `UserRoster`). Load with `data<UserRoster>('users')` (or the pre-typed `users`
-  export), look up with `byRole(users, 'standard')`.
-- The roster is the seed for data-driven tests (see below).
+The login flow is encapsulated in `cypress/pages/LoginPage.ts` (`login(username, password)` +
+`assertError`) and `SecureAreaPage.ts` (the logged-in page). Specs compose them; the test cases
+live in `data/login.json` (typed by `LoginCase` in `cypress/support/types.ts`).
 
-> saucedemo uses client-side routing (protected pages 404 on direct hit), so login goes
-> through the UI. For apps with deep-linking/SSR, wrap `cy.login` in `cy.session(...)` to
-> cache auth across tests.
+- Reusable UI actions belong on the Page Object (`return this` for chaining). Promote one to a
+  `cy.login()` custom command in `support/commands.ts` only if many specs need it.
+- Keep credentials/account fixtures in `data/*.json` — same pattern as any other data-driven
+  dataset (see below).
+- If the app supports deep-linking/SSR, wrap login in `cy.session([user, pass], () => {...},
+{ cacheAcrossSpecs: true })` to cache auth instead of logging in through the UI every test.
 
 ## Data-driven tests
 
 Specs generate one `it()` per record by iterating data at **load time**. Add a record via the
 editor and its test case appears automatically — no spec changes.
 
-```ts
-import { users } from '../support/data' // static import (sync) — see note below
+This is exactly how `cypress/e2e/login-cases.cy.ts` works over `data/login.json`:
 
-users.forEach((user) => {
-  it(`${user.role}: ${user.canLogin ? 'logs in' : 'is rejected'}`, () => {
-    login.login(user.username, user.password)
-    user.canLogin ? inventory.assertLoaded() : login.assertError(user.error ?? '')
+```ts
+import { data } from '../support/data'
+import type { LoginCase } from '../support/types'
+
+const cases = data<LoginCase[]>('login') // static import (sync) — see note below
+
+cases.forEach((tc) => {
+  it(`${tc.TCID} — ${tc.desc}`, { tags: tc.expectSuccess ? ['@smoke'] : ['@regression'] }, () => {
+    login.login(tc.username, tc.password)
+    tc.expectSuccess ? secure.assertLoaded() : login.assertError(tc.error ?? '')
   })
 })
 ```
 
 ### Data loader & helpers (`support/data.ts`)
 
-Every `data/*.json` is auto-loaded at bundle time — **drop a file in `data/` and use it, no
-wiring**. `cy.fixture` is async and can't drive `it()` titles, so generation uses these static
-imports (same files the editor writes).
+Every `data/**/*.json` (subfolders included) is auto-loaded at bundle time — **drop a file
+anywhere under `data/` and use it, no wiring**. A nested file is addressed by its path relative to
+`data/`, e.g. `data<T>('checkout/cases')` for `data/checkout/cases.json`. `cy.fixture` is async
+and can't drive `it()` titles, so generation uses these static imports (same files the editor
+writes).
 
 ```ts
 import { data, findIn, filterIn } from '../support/data'
 
-data<User[]>('users') // whole file
-findIn<User>('users', (u) => u.role === 'lockedOut') // one record (throws if none)
-filterIn<User>('users', (u) => u.canLogin) // many records (search)
-filterIn<User>('users', (u) => u.username.includes('glitch')) // substring search
+data<LoginCase[]>('login') // whole file
+findIn<LoginCase>('login', (r) => r.TCID === 'TC001') // one record (throws if none)
+filterIn<LoginCase>('login', (r) => !r.expectSuccess) // many records (search)
+filterIn<LoginCase>('login', (r) => r.username.includes('student')) // substring search
 ```
 
 - Dataset names are typed (`DataFile`, auto-generated by `npm run data:types`) — typos fail at
-  compile time and names autocomplete. Re-run it after adding a `data/*.json` file.
+  compile time and names autocomplete. Re-run it after adding a `data/*.json` file (nested too).
 - Pass the type via generic (`data<T>`) for autocomplete/checks on the result.
-- Works on **any** data file the same way: `findIn<LoginCase>('login', (r) => r.TCID === 'TC001')`.
-- `users` is also exported pre-typed for convenience: `import { users } from '../support/data'`.
+- Works on **any** data file the same way, including nested ones: `data<T>('checkout/cases')`.
 
-See `cypress/e2e/data-helpers.cy.ts` for a runnable demo of each helper.
+### Choosing a data-driven style
 
-### Two data-driven styles (both runnable)
+- **Roster-driven** — one JSON file of entities (users, products…), one test per entity.
+- **Test-case-driven** — one JSON file of `{ TCID, ...input, ...expected }` rows, one test per
+  `TCID`, each row carrying its own input + expected result. Add a row via `npm run data` and a
+  new test appears automatically — no spec changes.
 
-- **Roster-driven** (`login.cy.ts` over `data/users.json`) — one test per entity/user.
-- **Test-case-driven** (`login-cases.cy.ts` over `data/login.json`) — one test per `TCID`,
-  each row carrying its own input + expected result (`expectSuccess` / `error`). Add a TCID
-  row via `npm run data` and a new test appears automatically.
+Both use the same `data<T>('name')` loader; pick whichever matches the scenario. `login-cases.cy.ts`
+is the test-case-driven example — copy its shape for new datasets.
 
 ## Visual & A11y notes
 
@@ -348,7 +373,7 @@ cypress.env.json (secrets) ──> secret() ──> support/api.ts (cy.request s
 - Tag every `it()`: `@smoke` (critical happy path) or `@regression`; `@manual` / `@visual` for those.
 - Derive data-driven test titles from a stable field (`user.role`, `tc.TCID`).
 - Use `support/api.ts` for setup/teardown of state you aren't testing through the UI.
-- Run `npm run data:types` after adding/removing a `data/*.json` file.
+- Run `npm run data:types` after adding/removing a `data/*.json` file (nested subfolders too).
 - **Before done:** `npm run typecheck && npm run lint && npm test` — all green.
 
 ### Rules — don't

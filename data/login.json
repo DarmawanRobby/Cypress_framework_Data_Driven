@@ -1,34 +1,26 @@
 [
   {
     "TCID": "TC001",
-    "desc": "valid user logs in successfully",
-    "username": "standard_user",
-    "password": "secret_sauce",
+    "desc": "valid credentials log in successfully",
+    "username": "student",
+    "password": "Password123",
     "expectSuccess": true,
     "error": ""
   },
   {
     "TCID": "TC002",
-    "desc": "locked-out user is blocked",
-    "username": "locked_out_user",
-    "password": "secret_sauce",
+    "desc": "invalid username is rejected",
+    "username": "incorrectUser",
+    "password": "Password123",
     "expectSuccess": false,
-    "error": "Sorry, this user has been locked out."
+    "error": "Your username is invalid!"
   },
   {
     "TCID": "TC003",
-    "desc": "wrong password is rejected",
-    "username": "standard_user",
-    "password": "wrong_password",
+    "desc": "invalid password is rejected",
+    "username": "student",
+    "password": "incorrectPassword",
     "expectSuccess": false,
-    "error": "Username and password do not match"
-  },
-  {
-    "TCID": "TC004",
-    "desc": "empty credentials are rejected",
-    "username": "",
-    "password": "",
-    "expectSuccess": false,
-    "error": "Username is required"
+    "error": "Your password is invalid!"
   }
 ]

@@ -14,12 +14,6 @@ declare global {
       ): Chainable<void>
 
       /**
-       * Log in via the UI with session caching.
-       * @example cy.login('standard_user', 'secret_sauce')
-       */
-      login(username: string, password: string): Chainable<void>
-
-      /**
        * Shorthand for `cy.get('[data-test="..."]')`.
        * @example cy.getBySel('login-button').click()
        */
