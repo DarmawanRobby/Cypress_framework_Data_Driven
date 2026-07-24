@@ -328,6 +328,62 @@
         justify-content: flex-end;
         gap: 8px;
       }
+      .th-inner {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .dd-btn {
+        margin-left: auto;
+      }
+      .dd-btn.active {
+        color: var(--accent);
+      }
+      #ddOverlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 25;
+      }
+      #ddBox {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 20px;
+        width: min(460px, 92vw);
+        max-height: 82vh;
+        display: flex;
+        flex-direction: column;
+      }
+      #ddBox h3 {
+        margin: 0 0 4px;
+        font-size: 16px;
+      }
+      #ddHint {
+        margin: 0 0 12px;
+        font-size: 12px;
+      }
+      #ddList {
+        overflow: auto;
+        margin-bottom: 12px;
+      }
+      .dd-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 6px;
+      }
+      #ddAddForm {
+        margin-bottom: 14px;
+      }
+      #ddButtons {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
     </style>
   </head>
   <body>
@@ -387,12 +443,34 @@
 
     <div id="contextMenu" hidden></div>
 
+    <div id="ddOverlay" hidden>
+      <div id="ddBox">
+        <h3 id="ddTitle"></h3>
+        <p id="ddHint" class="muted">
+          Cells in this column become a dropdown of these options. Existing values not in the list
+          are kept and marked with (?).
+        </p>
+        <div id="ddList"></div>
+        <form id="ddAddForm">
+          <input id="ddAddInput" type="text" placeholder="new option" />
+          <button class="primary" type="submit">+ Option</button>
+        </form>
+        <div id="ddButtons">
+          <button id="ddRemove" class="danger">Remove dropdown</button>
+          <span style="flex: 1"></span>
+          <button id="ddCancel">Cancel</button>
+          <button id="ddSave" class="primary">Save</button>
+        </div>
+      </div>
+    </div>
+
     <script>
       let file = null
       let records = []
       let columns = []
       let types = {}
       let columnFilters = {} // { colName: filter value ('' means no filter) }
+      let dropdowns = {} // { colName: [option, ...] } — cells in that column render as <select>
       let allFolders = []
       let allFiles = []
       const expanded = new Set()
@@ -784,6 +862,7 @@
         const data = await api('/api/data/' + f)
         records = Array.isArray(data) ? data : [data]
         file = f
+        dropdowns = await api('/api/dropdowns/' + f).catch(() => ({}))
         deriveSchema(records)
         renderCurrentPath(f)
         $('saveBtn').disabled = false
@@ -795,8 +874,40 @@
         loadFiles()
       }
 
+      // A configured dropdown column renders as a <select>. The current value is preserved
+      // even if it's no longer in the option list (shown with a '(?)' suffix) so switching a
+      // column to a dropdown never silently drops data that doesn't match.
+      function dropdownCell(rec, col) {
+        const sel = document.createElement('select')
+        const cur = rec[col]
+        const opts = dropdowns[col].map(String)
+        const blank = document.createElement('option')
+        blank.value = ''
+        blank.textContent = '—'
+        sel.appendChild(blank)
+        if (cur !== '' && cur != null && !opts.includes(String(cur))) {
+          const o = document.createElement('option')
+          o.value = String(cur)
+          o.textContent = String(cur) + ' (?)'
+          sel.appendChild(o)
+        }
+        dropdowns[col].forEach((v) => {
+          const o = document.createElement('option')
+          o.value = String(v)
+          o.textContent = String(v)
+          sel.appendChild(o)
+        })
+        sel.value = cur == null ? '' : String(cur)
+        sel.onchange = () => {
+          const v = sel.value
+          rec[col] = v !== '' && types[col] === 'number' ? Number(v) : v
+        }
+        return sel
+      }
+
       function cellInput(rec, col) {
         const type = types[col]
+        if (type !== 'boolean' && dropdowns[col]) return dropdownCell(rec, col)
         const inp = document.createElement('input')
         if (type === 'boolean') {
           inp.type = 'checkbox'
@@ -946,7 +1057,26 @@
         const head = document.createElement('tr')
         columns.forEach((c) => {
           const th = document.createElement('th')
-          th.textContent = c
+          const inner = document.createElement('div')
+          inner.className = 'th-inner'
+          const name = document.createElement('span')
+          name.textContent = c
+          inner.appendChild(name)
+          // Boolean columns are checkboxes — a dropdown makes no sense there.
+          if (types[c] !== 'boolean') {
+            const ddBtn = document.createElement('button')
+            ddBtn.className = 'icon-btn dd-btn' + (dropdowns[c] ? ' active' : '')
+            ddBtn.textContent = '▾'
+            ddBtn.title = dropdowns[c]
+              ? `Dropdown: ${dropdowns[c].length} option(s)`
+              : 'Make this column a dropdown'
+            ddBtn.onclick = (e) => {
+              e.stopPropagation()
+              openDropdownManager(c)
+            }
+            inner.appendChild(ddBtn)
+          }
+          th.appendChild(inner)
           head.appendChild(th)
         })
         head.appendChild(document.createElement('th'))
@@ -1024,6 +1154,105 @@
         } catch (err) {
           toast(err.message, false)
         }
+      }
+
+      // ── Dropdown manager ─────────────────────────────────────────────────────
+      // Options are edited on a working copy (ddOpts); nothing is written to the
+      // server until Save/Remove, keeping Cancel truly non-destructive.
+      let ddCol = null
+      let ddOpts = []
+
+      const persistDropdowns = () =>
+        api('/api/dropdowns/' + file, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(dropdowns),
+        })
+
+      function renderDdList() {
+        const list = $('ddList')
+        list.innerHTML = ''
+        if (!ddOpts.length) {
+          const p = document.createElement('p')
+          p.className = 'muted'
+          p.textContent = 'No options yet — add one below.'
+          list.appendChild(p)
+          return
+        }
+        ddOpts.forEach((opt, i) => {
+          const row = document.createElement('div')
+          row.className = 'dd-row'
+          const inp = document.createElement('input')
+          inp.type = 'text'
+          inp.value = opt
+          inp.oninput = () => (ddOpts[i] = inp.value)
+          const del = document.createElement('button')
+          del.className = 'icon-btn danger'
+          del.textContent = '✕'
+          del.title = 'Remove option'
+          del.onclick = () => {
+            ddOpts.splice(i, 1)
+            renderDdList()
+          }
+          row.append(inp, del)
+          list.appendChild(row)
+        })
+      }
+
+      function openDropdownManager(col) {
+        ddCol = col
+        ddOpts = [...(dropdowns[col] || [])]
+        $('ddTitle').textContent = 'Dropdown — ' + col
+        $('ddAddInput').value = ''
+        $('ddRemove').hidden = !dropdowns[col]
+        renderDdList()
+        $('ddOverlay').hidden = false
+        $('ddAddInput').focus()
+      }
+
+      const closeDropdownManager = () => ($('ddOverlay').hidden = true)
+
+      $('ddAddForm').onsubmit = (e) => {
+        e.preventDefault()
+        const v = $('ddAddInput').value.trim()
+        if (v && !ddOpts.includes(v)) ddOpts.push(v)
+        $('ddAddInput').value = ''
+        renderDdList()
+        $('ddAddInput').focus()
+      }
+
+      $('ddSave').onclick = async () => {
+        const clean = [...new Set(ddOpts.map((o) => String(o).trim()).filter(Boolean))]
+        if (clean.length) dropdowns[ddCol] = clean
+        else delete dropdowns[ddCol]
+        try {
+          await persistDropdowns()
+          closeDropdownManager()
+          render()
+          toast(clean.length ? 'Dropdown saved for ' + ddCol : 'Dropdown removed from ' + ddCol)
+        } catch (err) {
+          toast(err.message, false)
+        }
+      }
+
+      $('ddRemove').onclick = async () => {
+        delete dropdowns[ddCol]
+        try {
+          await persistDropdowns()
+          closeDropdownManager()
+          render()
+          toast('Dropdown removed from ' + ddCol)
+        } catch (err) {
+          toast(err.message, false)
+        }
+      }
+
+      $('ddCancel').onclick = closeDropdownManager
+      $('ddOverlay').onclick = (e) => {
+        if (e.target === $('ddOverlay')) closeDropdownManager()
+      }
+      $('ddOverlay').onkeydown = (e) => {
+        if (e.key === 'Escape') closeDropdownManager()
       }
 
       loadFiles()

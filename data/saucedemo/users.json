@@ -1,0 +1,26 @@
+[
+  {
+    "TCID": "SD01",
+    "desc": "standard user logs in and reaches inventory",
+    "username": "standard_user",
+    "password": "secret_sauce",
+    "expectSuccess": true,
+    "error": ""
+  },
+  {
+    "TCID": "SD02",
+    "desc": "locked-out user is blocked",
+    "username": "locked_out_user",
+    "password": "secret_sauce",
+    "expectSuccess": false,
+    "error": "Epic sadface: Sorry, this user has been locked out."
+  },
+  {
+    "TCID": "SD03",
+    "desc": "wrong password is rejected",
+    "username": "standard_user",
+    "password": "wrong_password",
+    "expectSuccess": false,
+    "error": "Epic sadface: Username and password do not match any user in this service"
+  }
+]

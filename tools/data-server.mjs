@@ -9,6 +9,10 @@ import { fileURLToPath } from 'node:url'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const DATA_DIR = join(ROOT, 'data')
 const HTML = join(ROOT, 'tools', 'data-editor.html')
+// Per-column dropdown option sets, keyed by data-file path ('saucedemo/users.json').
+// Lives OUTSIDE data/ on purpose: data/ is scanned by data.ts (require.context),
+// gen-data-types.mjs, and walkTree here — a .json in there would load as a fake dataset.
+const DROPDOWNS_FILE = join(ROOT, 'tools', 'dropdowns.json')
 const PORT = Number(process.env.DATA_PORT) || 5050
 
 const SEGMENT_RE = /^[\w-]+$/
@@ -65,6 +69,43 @@ const readBody = (req) =>
     req.on('end', () => done(raw))
     req.on('error', fail)
   })
+
+// Whole dropdowns map ({} when the file is absent or unreadable).
+async function readDropdowns() {
+  try {
+    return JSON.parse(await readFile(DROPDOWNS_FILE, 'utf8'))
+  } catch {
+    return {}
+  }
+}
+
+async function writeDropdowns(map) {
+  await writeFile(DROPDOWNS_FILE, JSON.stringify(map, null, 2) + '\n')
+}
+
+// Keeps dropdown config in sync when a data file/folder is renamed, moved, or
+// deleted so it never points at a path that no longer exists.
+async function syncDropdownsPath(from, to, type) {
+  const map = await readDropdowns()
+  let changed = false
+  if (type === 'file') {
+    if (from in map) {
+      if (to != null) map[to] = map[from]
+      delete map[from]
+      changed = true
+    }
+  } else {
+    // folder: re-key (or drop) every data file living under it.
+    const prefix = from + '/'
+    for (const key of Object.keys(map)) {
+      if (!key.startsWith(prefix)) continue
+      if (to != null) map[to + '/' + key.slice(prefix.length)] = map[key]
+      delete map[key]
+      changed = true
+    }
+  }
+  if (changed) await writeDropdowns(map)
+}
 
 const server = createServer(async (req, res) => {
   try {
@@ -137,7 +178,25 @@ const server = createServer(async (req, res) => {
       if (toStat) return send(res, 409, { error: 'target already exists' })
       await mkdir(dirname(toAbs), { recursive: true })
       await rename(fromAbs, toAbs)
+      await syncDropdownsPath(from, to, type)
       return send(res, 200, { ok: true })
+    }
+
+    const dropMatch = pathname.match(/^\/api\/dropdowns\/(.+)$/)
+    if (dropMatch) {
+      const file = decodeURIComponent(dropMatch[1])
+      if (!resolveSafe(file, { requireJson: true })) {
+        return send(res, 400, { error: 'invalid filename' })
+      }
+      const map = await readDropdowns()
+      if (req.method === 'GET') return send(res, 200, map[file] ?? {})
+      if (req.method === 'PUT') {
+        const cols = JSON.parse(await readBody(req))
+        if (cols && typeof cols === 'object' && Object.keys(cols).length) map[file] = cols
+        else delete map[file]
+        await writeDropdowns(map)
+        return send(res, 200, { ok: true })
+      }
     }
 
     const match = pathname.match(/^\/api\/data\/(.+)$/)
@@ -159,6 +218,7 @@ const server = createServer(async (req, res) => {
           })
         }
         await unlink(fp)
+        await syncDropdownsPath(file, null, 'file')
         return send(res, 200, { ok: true })
       }
     }

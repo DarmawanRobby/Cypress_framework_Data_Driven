@@ -13,3 +13,26 @@ export interface LoginCase {
   /** Expected `#error` text when `expectSuccess` is false. */
   error?: string
 }
+
+/** One saucedemo login case (data/saucedemo/users.json), driven by TCID. */
+export interface SauceLoginCase {
+  TCID: string
+  desc: string
+  username: string
+  password: string
+  /** Whether this case should reach /inventory.html. */
+  expectSuccess: boolean
+  /** Expected `[data-test="error"]` text when `expectSuccess` is false. */
+  error?: string
+}
+
+/** Shopping/checkout fixture for the saucedemo E2E (data/saucedemo/checkout.json). */
+export interface SauceCheckout {
+  /** Product names to add to the cart, as shown on the inventory page. */
+  products: string[]
+  customer: {
+    firstName: string
+    lastName: string
+    postalCode: string
+  }
+}
