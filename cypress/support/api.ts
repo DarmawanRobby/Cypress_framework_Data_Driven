@@ -5,7 +5,8 @@
 // comes from cypress.env.json (secrets). Adapt endpoints/shapes to your API.
 import { secret } from './secrets'
 
-const base = () => (Cypress.env('apiUrl') as string | undefined) ?? ''
+const base = (): Cypress.Chainable<string> =>
+  cy.env(['apiUrl']).then((values) => (values.apiUrl as string | undefined) ?? '')
 
 interface ApiOptions extends Partial<Cypress.RequestOptions> {
   /** Attach `Authorization: Bearer <authToken>` from cypress.env.json (default true). */
@@ -13,12 +14,24 @@ interface ApiOptions extends Partial<Cypress.RequestOptions> {
 }
 
 function request<T = unknown>({ withToken = true, headers, url = '', ...rest }: ApiOptions) {
-  const token = secret('authToken')
-  return cy.request<T>({
-    failOnStatusCode: true,
-    ...rest,
-    url: `${base()}${url}`,
-    headers: { ...headers, ...(withToken && token ? { Authorization: `Bearer ${token}` } : {}) },
+  return base().then((apiUrl) => {
+    const requestOptions = {
+      failOnStatusCode: true,
+      ...rest,
+      url: `${apiUrl}${url}`,
+      headers,
+    } as Cypress.RequestOptions
+
+    if (!withToken) {
+      return cy.request<T>(requestOptions)
+    }
+
+    return secret('authToken').then((token) =>
+      cy.request<T>({
+        ...requestOptions,
+        headers: { ...headers, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      }),
+    )
   })
 }
 

@@ -59,6 +59,7 @@ npm run typecheck && npm run lint && npm test   # 4. verify before committing
 | ---------------------------------------- | ---------------------------------------------------------------------- |
 | `npm test`                               | Full suite, headless, dev env                                          |
 | `npm run open:dev`                       | Interactive runner (pick specs, time-travel, debug)                    |
+| `npx cypress open`                       | Open interactive runner; each spec generates an updated report         |
 | `npm run test:smoke` / `test:regression` | Run only `@smoke` / `@regression` tagged tests                         |
 | `npm run test:manual`                    | Open GUI for `@manual` specs (human steps like PIN/eKYC)               |
 | `npm run test:visual`                    | Run `@visual` regression specs (baselines under `cypress/snapshots/`)  |
@@ -67,24 +68,60 @@ npm run typecheck && npm run lint && npm test   # 4. verify before committing
 | `npm run data:types`                     | Regenerate `data('...')` autocomplete types (after adding a data file) |
 | `npm run new:test -- <Name> [--data]`    | Scaffold a new Page + spec                                             |
 | `npm run report:open`                    | Open the HTML report                                                   |
+| `npm run test:report`                    | Run the suite and open the generated HTML report                       |
 | `npm run typecheck` / `lint` / `format`  | Quality gates (also run on pre-commit)                                 |
 
-Reports land in `cypress/reports/index.html` after a headless run.
+Reports land in `cypress/reports/index.html`.
+
+## Reports
+
+Two report paths write to the same `cypress/reports/index.html` ("the latest report"), so
+`npm run report:open` always opens whichever ran last:
+
+| Mode                          | Report                                                                               | Contents                                                                                                   |
+| ----------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `cypress run` (headless / CI) | **mochawesome**                                                                      | tests, charts, screenshots on failure, **video** per spec                                                  |
+| `cypress open` (interactive)  | **custom bridge** ([scripts/open-report-writer.mjs](scripts/open-report-writer.mjs)) | per-test command log grouped into phases, embedded screenshots, filters; auto-opens when you close Cypress |
+
+Why two: Cypress only runs the configured `reporter` in `cypress run`, **never** in `cypress open`.
+So in open mode [cypress/support/e2e.ts](cypress/support/e2e.ts) collects each test's command log in
+the browser and hands it to the `recordOpenReport` task, which renders the HTML. Video records only
+in `cypress run` (`video: true`) — Cypress can't record in open mode.
+
+> **Gotcha — don't reintroduce:** do **not** enable `experimentalInteractiveRunEvents` + the
+> reporter's `after:run` in open mode. It crashes the Electron/Chrome tab with "Expected DataContext
+> to already have been set via setCtx" ([cypress-io/cypress#27335](https://github.com/cypress-io/cypress/issues/27335)) — browser-independent, not an app bug.
+
+### `Step()` — labelled steps in the report
+
+Mark phases in a spec (or Page Object) so the interactive report reads as human steps instead of raw
+commands — ideal for manual flows (OTP / eKYC):
+
+```ts
+import { Step } from '../support/step' // '../../support/step' from cypress/pages/**
+
+Step('Add products to cart') // phase marker in the command log
+Step('Enter OTP', { shot: true }) // + a viewport screenshot embedded in the report
+```
+
+`Step` is queued (via `cy.then`) so it logs in execution order; call it as a statement (it returns
+`void`, not chainable). Screenshots land in the report's right-hand "Capture" column, each labelled
+with its phase.
 
 ## Stack
 
-| Concern       | Tool                                |
-| ------------- | ----------------------------------- |
-| Runner        | Cypress 15                          |
-| Language      | TypeScript (strict)                 |
-| Structure     | Page Object Model                   |
-| Accessibility | cypress-axe + axe-core              |
-| Visual        | @simonsmith/cypress-image-snapshot  |
-| Reporting     | cypress-mochawesome-reporter (HTML) |
-| Quality       | ESLint + Prettier                   |
-| Tagging       | @bahmutov/cy-grep                   |
-| Git hooks     | husky + lint-staged (pre-commit)    |
-| CI            | GitHub Actions                      |
+| Concern       | Tool                                                                  |
+| ------------- | --------------------------------------------------------------------- |
+| Runner        | Cypress 15                                                            |
+| Language      | TypeScript (strict)                                                   |
+| Structure     | Page Object Model                                                     |
+| Accessibility | cypress-axe + axe-core                                                |
+| Visual        | @simonsmith/cypress-image-snapshot                                    |
+| Reporting     | cypress-mochawesome-reporter (run) + custom interactive report (open) |
+| Quality       | ESLint + Prettier                                                     |
+| Tagging       | @bahmutov/cy-grep                                                     |
+| Git hooks     | husky + lint-staged (pre-commit)                                      |
+| CI            | GitHub Actions                                                        |
 
 ## Structure
 
@@ -100,10 +137,12 @@ tools/
   data-editor.html    # browser UI: folder tree, search, add/rename/move/delete data
 templates/            # skeletons used by `npm run new:test`
 scripts/              # setup, data:types, new:test, report:open helpers
+  cypress.mjs         # launcher: strips ELECTRON_RUN_AS_NODE, GPU flags, auto-opens report
+  open-report-writer.mjs  # renders the interactive (cypress open) HTML report
 cypress/
   e2e/                # *.cy.ts specs
   pages/              # Page Objects (BasePage + per-page classes)
-  support/            # commands.ts, e2e.ts, types.ts, data.ts, *.d.ts
+  support/            # commands.ts, e2e.ts, types.ts, data.ts, step.ts, *.d.ts
   reports/            # HTML report + screenshots (gitignored)
   snapshots/          # visual baselines (committed)
 cypress.config.ts
@@ -395,6 +434,36 @@ cypress.env.json (secrets) ──> secret() ──> support/api.ts (cy.request s
   `moduleResolution: "bundler"`.
 
 ### Add a new test (build order)
+
+## **Notes For Claude**
+
+- **Root cause of the "report never generated" bug (solved):** the real culprit was **not** the
+  reporter config — it was the `ELECTRON_RUN_AS_NODE=1` env var that VSCode's extension-host
+  terminals (incl. Claude Code / Cursor integrated shells) inject. That flag forces Cypress's
+  bundled Electron to boot as plain Node, which surfaces as a cryptic `MODULE_NOT_FOUND` and no
+  HTML report. Fixed by [scripts/cypress.mjs](scripts/cypress.mjs) — a thin launcher that strips
+  the var before spawning Cypress; **all `cypress` npm scripts now route through it**. In a VSCode
+  terminal always use `npm run cy:open` / `npm run open:dev` (not a bare `npx cypress open`, which
+  bypasses the wrapper and still inherits the bad env var). A normal Terminal.app/iTerm shell
+  never has the var, so raw `npx` works there.
+
+- **Report generation:** see [Reports](#reports) for the full picture. Short version: `cypress run`
+  uses **mochawesome**; `cypress open` uses a **custom bridge** — the mochawesome reporter never runs
+  in open mode, so [cypress/support/e2e.ts](cypress/support/e2e.ts) collects the command log per test
+  and the `recordOpenReport` task renders [scripts/open-report-writer.mjs](scripts/open-report-writer.mjs).
+  The earlier `experimentalInteractiveRunEvents` + `afterRunHook()` approach was removed — it crashed
+  the tab (cypress-io/cypress#27335). `e2e.ts` also stubs analytics/CDN noise and drops setup-only
+  `route` (cy.intercept) logs from the report.
+
+- **Quick verification commands** (all green as of last check — 10/10 specs, report at
+  `cypress/reports/index.html`):
+
+```bash
+npm run typecheck
+npm run lint
+npm test                # headless run (generates cypress/reports/index.html)
+npm run cy:open         # interactive runner — report regenerates after each spec
+```
 
 1. (data-driven) add `data/<name>.json` + a type in `support/types.ts`
 2. Page Object in `cypress/pages/` (extends `BasePage`)

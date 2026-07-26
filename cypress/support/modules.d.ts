@@ -16,6 +16,18 @@ declare module '@bahmutov/cy-grep/src/plugin' {
   export default cyGrepPlugin
 }
 
+declare module 'cypress-mochawesome-reporter/lib' {
+  import type { BeforeRunDetails } from 'cypress'
+  import type { CypressRunResult, CypressFailedRunResult } from 'cypress'
+
+  export function beforeRunHook(details?: BeforeRunDetails): Promise<void>
+  export function afterRunHook(results?: CypressRunResult | CypressFailedRunResult): Promise<void>
+}
+
+declare module 'mochawesome-merge'
+
+declare module 'mochawesome-report-generator'
+
 // Allow `tags` in it()/describe() config for @bahmutov/cy-grep.
 declare namespace Cypress {
   interface TestConfigOverrides {

@@ -11,5 +11,10 @@
     "resolveJsonModule": true,
     "noEmit": true
   },
-  "include": ["cypress/**/*.ts", "config/**/*.ts", "cypress.config.ts"]
+  "include": [
+    "cypress/**/*.ts",
+    "config/**/*.ts",
+    "cypress.config.ts",
+    "cypress-mochawesome-reporter.d.ts"
+  ]
 }

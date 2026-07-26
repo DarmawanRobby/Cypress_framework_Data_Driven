@@ -1,10 +1,21 @@
 node_modules/
+
+# Cypress-generated artifacts (reports, media, screenshots) — never commit
 cypress/reports/
 cypress/videos/
 cypress/downloads/
+cypress/screenshots/
 cypress/snapshots/**/__diff_output__/
+
+# Secrets / local env
 .env
 cypress.env.json
+
+# Tooling caches
+*.tsbuildinfo
+.eslintcache
+
+# OS / logs
 *.log
 .DS_Store
 AGENTS.md

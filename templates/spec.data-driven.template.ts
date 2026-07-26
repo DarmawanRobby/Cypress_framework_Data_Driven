@@ -6,6 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { TemplatePage } from '../pages/TemplatePage' // TODO: your page
 import { data } from '../support/data'
+import { Step } from '../support/step' // optional — labels phases in the `cypress open` report
 import type { TemplateRow } from '../support/types' // TODO: your type
 
 const page = new TemplatePage()
@@ -25,6 +26,9 @@ describe('TODO: feature (data-driven)', () => {
     // TODO: use a stable field for the title, e.g. row.TCID / row.id
     it(`${row.id}: TODO describe the case`, { tags: ['@regression'] }, () => {
       page.assertLoaded()
+      // Optional: Step('…') marks a phase in the interactive report; add { shot: true }
+      // to embed a screenshot (handy for manual OTP/eKYC). Delete Step + import if unused.
+      Step(`TODO: ${row.id}`)
       // TODO: feed row.<field> as inputs, assert the expected outcome
     })
   })

@@ -20,6 +20,8 @@ to their real location.
 - Page methods return `this` so calls chain.
 - Data is read with `data<T>('name')` — auto-loaded, no wiring.
 - Every `it()` carries a tag (`@smoke` for critical happy paths, else `@regression`).
+- `Step('…')` (optional) labels a phase in the `cypress open` report; `{ shot: true }`
+  embeds a screenshot for that phase. Delete the `Step` call + import if you don't need it.
 
 ## Nested data files
 

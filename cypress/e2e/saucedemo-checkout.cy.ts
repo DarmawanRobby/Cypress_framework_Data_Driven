@@ -1,5 +1,6 @@
 import { SauceLoginPage } from '../pages/saucedemo/SauceLoginPage'
 import { data } from '../support/data'
+import { Step } from '../support/step'
 import type { SauceCheckout } from '../support/types'
 
 // This suite targets saucedemo.com, not the repo's default baseUrl — override
@@ -16,15 +17,19 @@ describe('Sauce Demo — checkout flow', () => {
   })
 
   it('completes an order end-to-end', { tags: ['@smoke'] }, () => {
+    Step('Login as standard_user')
     const inventory = login.visit().loginAs('standard_user', 'secret_sauce')
 
+    Step('Add products to cart', { shot: true })
     fx.products.forEach((name) => inventory.addToCart(name))
     inventory.assertCartCount(fx.products.length)
 
+    Step('Open cart and verify items', { shot: true })
     const cart = inventory.openCart()
     fx.products.forEach((name) => cart.assertHasItem(name))
     cart.assertItemCount(fx.products.length)
 
+    Step('Checkout and complete the order', { shot: true })
     cart
       .checkout()
       .fillCustomer(fx.customer.firstName, fx.customer.lastName, fx.customer.postalCode)

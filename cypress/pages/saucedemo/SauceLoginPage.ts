@@ -1,3 +1,4 @@
+import { Step } from '../../support/step'
 import { BasePage } from '../BasePage'
 import { InventoryPage } from './InventoryPage'
 
@@ -27,6 +28,7 @@ export class SauceLoginPage extends BasePage {
       cy.get(this.el.password).clear()
       cy.get(this.el.password).type(password, { log: false })
     }
+    Step('Login as standard_user', { shot: true })
     cy.get(this.el.submit).click()
     return this
   }

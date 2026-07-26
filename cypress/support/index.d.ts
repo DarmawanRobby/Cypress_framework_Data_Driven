@@ -1,6 +1,10 @@
 /// <reference types="cypress" />
 /// <reference types="cypress-axe" />
 
+declare module 'cypress-mochawesome-reporter/plugin.js'
+
+declare module 'cypress-mochawesome-reporter/lib/index.js'
+
 declare global {
   namespace Cypress {
     interface Chainable {
