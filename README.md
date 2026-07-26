@@ -452,8 +452,9 @@ cypress.env.json (secrets) ──> secret() ──> support/api.ts (cy.request s
   in open mode, so [cypress/support/e2e.ts](cypress/support/e2e.ts) collects the command log per test
   and the `recordOpenReport` task renders [scripts/open-report-writer.mjs](scripts/open-report-writer.mjs).
   The earlier `experimentalInteractiveRunEvents` + `afterRunHook()` approach was removed — it crashed
-  the tab (cypress-io/cypress#27335). `e2e.ts` also stubs analytics/CDN noise and drops setup-only
-  `route` (cy.intercept) logs from the report.
+  the tab (cypress-io/cypress#27335). `e2e.ts` flushes the report after **every test** (not just once
+  per spec) so completed tests survive closing the browser mid-spec, and drops setup-only `route`
+  (cy.intercept) logs from the report.
 
 - **Quick verification commands** (all green as of last check — 10/10 specs, report at
   `cypress/reports/index.html`):

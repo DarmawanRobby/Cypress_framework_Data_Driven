@@ -49,7 +49,7 @@ if (Cypress.config('isInteractive')) {
     state?: string
   }
   // Setup/plumbing logs that aren't meaningful test steps — keep them out of the
-  // report. `route` = cy.intercept registrations (the analytics/CDN stubs below).
+  // report. `route` = any cy.intercept registration a spec adds.
   const NOISE_LOGS = new Set(['route'])
   const stepsById = new Map<string, Step>()
   const captureLog = (attrs: LogAttrs) => {
