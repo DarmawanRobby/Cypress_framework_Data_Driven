@@ -17,7 +17,7 @@ describe('Sauce Demo — checkout flow', () => {
   })
 
   it('completes an order end-to-end', { tags: ['@smoke'] }, () => {
-    Step('Login as standard_user')
+    Step('Load login page')
     const inventory = login.visit().loginAs('standard_user', 'secret_sauce')
 
     Step('Add products to cart', { shot: true })
