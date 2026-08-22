@@ -48,6 +48,10 @@
     "visual-regression"
   ],
   "license": "MIT",
+  "//engines": "Mirrors Cypress 15's supported Node range. Re-check against the new range on every Cypress major (see docs/cypress-upgrade.md).",
+  "engines": {
+    "node": "^20.1.0 || ^22.0.0 || >=24.0.0"
+  },
   "devDependencies": {
     "@bahmutov/cy-grep": "^3.0.4",
     "@eslint/js": "^10.0.1",

@@ -38,7 +38,7 @@ const readResults = () => {
 
 /**
  * Record one spec's results and regenerate the HTML report.
- * @param {{ spec: string, browser?: string, tests: Array<{fullTitle:string,title:string,state:string,duration:number,error?:string|null}> }} payload
+ * @param {{ spec: string, browser?: string, tests: Array<{fullTitle:string,title:string,state:string,duration:number,error?:string|null,failureScreenshot?:string|null}> }} payload
  */
 export function writeOpenReport({ spec, browser, cypressVersion, platform, viewport, tests }) {
   mkdirSync(REPORT_DIR, { recursive: true })
@@ -153,9 +153,20 @@ function renderHtml(results) {
       .join('')
   }
 
+  // A failure screenshot is captured by the open-mode bridge (cypress/support/e2e.ts)
+  // and shown up front, right under the error — Cypress only auto-captures on failure
+  // in `cypress run`, so this is the interactive report's equivalent.
+  const embedFailure = (path) => {
+    const img = embedScreenshot(path)
+    return img
+      ? `<figure class="fail-shot"><figcaption>Screenshot at failure</figcaption>${img}</figure>`
+      : ''
+  }
+
   const renderTest = (t) => {
     const state = normState(t.state)
     const err = t.error ? `<pre class="err">${escapeHtml(t.error)}</pre>` : ''
+    const failShot = t.failureScreenshot ? embedFailure(t.failureScreenshot) : ''
     return `<details class="test t-${state}" data-state="${state}"${state === 'failed' ? ' open' : ''}>
       <summary>
         <span class="mark m-${state}" aria-hidden="true">${ICONS[t.state] || ICONS.unknown}</span>
@@ -163,7 +174,7 @@ function renderHtml(results) {
         <span class="dur">${formatDuration(t.duration)}</span>
         <span class="chev" aria-hidden="true">&rsaquo;</span>
       </summary>
-      <div class="tbody">${err}${renderLog(t.steps || [])}</div>
+      <div class="tbody">${err}${failShot}${renderLog(t.steps || [])}</div>
     </details>`
   }
 
@@ -271,6 +282,10 @@ function renderHtml(results) {
     border:1px solid var(--border); border-left:3px solid var(--fail); border-radius:4px;
     overflow-x:auto; color:var(--fail); font-size:12px; white-space:pre-wrap; word-break:break-word;
     font-family:var(--mono); }
+
+  /* Failure screenshot — shown up front under the error on a failed test. */
+  .fail-shot { margin:8px 0 14px; max-width:560px; }
+  .fail-shot figcaption { color:var(--fail); font-size:11.5px; font-weight:600; margin-bottom:5px; }
 
   /* Inside an expanded phase: log 40% · capture 60% (flex 2:3). */
   .phase-body { padding:8px 2px 4px; }

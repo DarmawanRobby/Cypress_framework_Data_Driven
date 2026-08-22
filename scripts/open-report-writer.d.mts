@@ -11,6 +11,7 @@ export interface OpenReportTest {
   state: string
   duration: number
   error?: string | null
+  failureScreenshot?: string | null
   steps?: OpenReportStep[]
 }
 

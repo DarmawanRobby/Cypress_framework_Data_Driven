@@ -16,6 +16,7 @@ export class SauceLoginPage extends BasePage {
     password: '[data-test="password"]',
     submit: '[data-test="login-button"]',
     error: '[data-test="error"]',
+    errorButton: '[data-test="error-button"]',
   }
 
   login(username: string, password: string): this {
@@ -41,6 +42,43 @@ export class SauceLoginPage extends BasePage {
 
   assertError(message: string): this {
     cy.get(this.el.error).should('be.visible').and('have.text', message)
+    return this
+  }
+
+  /** No error banner is present (e.g. after dismissing it or on a fresh page). */
+  assertNoError(): this {
+    cy.get(this.el.error).should('not.exist')
+    return this
+  }
+
+  /** Dismiss the error banner via its X button and assert it's gone. */
+  dismissError(): this {
+    cy.get(this.el.errorButton).click()
+    return this.assertNoError()
+  }
+
+  /** The password field masks its input (`type="password"`). */
+  assertPasswordMasked(): this {
+    cy.get(this.el.password).should('have.attr', 'type', 'password')
+    return this
+  }
+
+  /** We are on the login page with the form ready (used after logout / session loss). */
+  assertLoaded(): this {
+    cy.location('pathname').should('eq', '/')
+    cy.get(this.el.username).should('be.visible')
+    cy.get(this.el.submit).should('be.visible')
+    return this
+  }
+
+  /**
+   * The app-level guard error shown when a protected page is deep-linked
+   * without a session — saucedemo redirects to login and renders this message.
+   */
+  assertGuardError(page: string): this {
+    cy.get(this.el.error)
+      .should('be.visible')
+      .and('contain', `You can only access '${page}' when you are logged in`)
     return this
   }
 }
