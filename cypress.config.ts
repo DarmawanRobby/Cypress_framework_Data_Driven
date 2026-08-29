@@ -59,6 +59,11 @@ export default defineConfig({
             '--disable-software-rasterizer',
             '--disable-background-networking',
             '--disable-component-update',
+            // Fake camera: serve a static test pattern (or a .y4m file) as the
+            // camera feed so getUserMedia returns a stream without real hardware.
+            // To inject a specific video: add --use-file-for-fake-video-capture=/path/to.y4m
+            '--use-fake-device-for-media-stream',
+            '--use-fake-ui-for-media-stream',
           )
         }
         return launchOptions

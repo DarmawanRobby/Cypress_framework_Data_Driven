@@ -32,6 +32,20 @@ declare global {
        * @example cy.manualStep('Enter the PIN sent to your phone, then resume')
        */
       manualStep(instruction: string): Chainable<void>
+
+      /**
+       * Visit a URL with a fake camera stream (getUserMedia stubbed with a
+       * static image drawn on canvas). For eKYC, OCR, selfie capture.
+       * @param url        Route to visit (relative to baseUrl)
+       * @param fixturePath Image path relative to data/ (fixturesFolder)
+       * @param options    Optional width/height/frameRate overrides
+       * @example cy.injectCamera('/ekyc', 'ekyc/ktp-front.png')
+       */
+      injectCamera(
+        url: string,
+        fixturePath: string,
+        options?: import('./camera').CameraOptions,
+      ): Chainable<void>
     }
   }
 }

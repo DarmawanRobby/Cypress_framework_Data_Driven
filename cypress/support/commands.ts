@@ -1,4 +1,5 @@
 import type { Result } from 'axe-core'
+import { fakeCamera, type CameraOptions } from './camera'
 
 /** Shorthand for `cy.get('[data-test="..."]')` — the project's selector convention. */
 Cypress.Commands.add('getBySel', (selector: string, options?) =>
@@ -25,6 +26,20 @@ Cypress.Commands.add('manualStep', (instruction: string) => {
   cy.task('log', `\n  ${banner}\n  → Do it in the browser, then click ▶ (Resume).\n`)
   cy.pause()
 })
+
+/**
+ * Visit a page with a fake camera stream injected (getUserMedia stubbed).
+ * The image is served from `data/` (fixturesFolder). Useful for eKYC, OCR,
+ * selfie capture, and basic liveness testing.
+ *
+ * @example cy.injectCamera('/ekyc/upload', 'ekyc/ktp-front.png')
+ */
+Cypress.Commands.add(
+  'injectCamera',
+  (url: string, fixturePath: string, options?: CameraOptions) => {
+    cy.visit(url, { onBeforeLoad: fakeCamera(fixturePath, options) })
+  },
+)
 
 /**
  * Inject axe-core then assert accessibility on the given context.
