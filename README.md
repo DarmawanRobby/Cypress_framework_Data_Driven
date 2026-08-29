@@ -78,10 +78,10 @@ Reports land in `cypress/reports/index.html`.
 Two report paths write to the same `cypress/reports/index.html` ("the latest report"), so
 `npm run report:open` always opens whichever ran last:
 
-| Mode                          | Report                                                                               | Contents                                                                                                   |
-| ----------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| `cypress run` (headless / CI) | **mochawesome**                                                                      | tests, charts, screenshots on failure, **video** per spec                                                  |
-| `cypress open` (interactive)  | **custom bridge** ([scripts/open-report-writer.mjs](scripts/open-report-writer.mjs)) | per-test command log grouped into phases, embedded screenshots, filters; auto-opens when you close Cypress |
+| Mode                          | Report                                                                               | Contents                                                                                                                                   |
+| ----------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `cypress run` (headless / CI) | **mochawesome**                                                                      | tests, charts, screenshots on failure, **video** per spec                                                                                  |
+| `cypress open` (interactive)  | **custom bridge** ([scripts/open-report-writer.mjs](scripts/open-report-writer.mjs)) | per-test command log grouped into phases, embedded screenshots, **auto screenshot on failure**, filters; auto-opens when you close Cypress |
 
 Why two: Cypress only runs the configured `reporter` in `cypress run`, **never** in `cypress open`.
 So in open mode [cypress/support/e2e.ts](cypress/support/e2e.ts) collects each test's command log in
@@ -91,6 +91,12 @@ in `cypress run` (`video: true`) — Cypress can't record in open mode.
 > **Gotcha — don't reintroduce:** do **not** enable `experimentalInteractiveRunEvents` + the
 > reporter's `after:run` in open mode. It crashes the Electron/Chrome tab with "Expected DataContext
 > to already have been set via setCtx" ([cypress-io/cypress#27335](https://github.com/cypress-io/cypress/issues/27335)) — browser-independent, not an app bug.
+
+The open-mode bridge rides on Cypress's **internal** log/screenshot APIs, so it can break silently on
+a Cypress upgrade. Two nets guard it — a per-spec self-check in
+[cypress/support/e2e.ts](cypress/support/e2e.ts) (shouts `[report-bridge] ⚠`) and a `@smoke` smoke
+test ([cypress/e2e/framework-compat.cy.ts](cypress/e2e/framework-compat.cy.ts), runs in `npm test`).
+**Before/after any Cypress upgrade, work through [docs/cypress-upgrade.md](docs/cypress-upgrade.md).**
 
 ### `Step()` — labelled steps in the report
 

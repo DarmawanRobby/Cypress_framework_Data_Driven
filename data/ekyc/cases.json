@@ -1,0 +1,128 @@
+[
+  {
+    "TCID": "EKYC-01",
+    "desc": "KTP foto depan — OCR berhasil extract data",
+    "step": "ktp",
+    "inputType": "upload",
+    "fixture": "data/ekyc/ktp-front.png",
+    "mockEndpoint": "**/ocr/ktp",
+    "mockResponse": {
+      "success": true,
+      "data": {
+        "nik": "3201010101010001",
+        "nama": "JOHN DOE",
+        "tempatLahir": "JAKARTA",
+        "tanggalLahir": "01-01-1990"
+      }
+    },
+    "expectSuccess": true,
+    "error": null
+  },
+  {
+    "TCID": "EKYC-02",
+    "desc": "KTP foto buram — OCR gagal baca",
+    "step": "ktp",
+    "inputType": "upload",
+    "fixture": "data/ekyc/ktp-blurry.png",
+    "mockEndpoint": "**/ocr/ktp",
+    "mockResponse": {
+      "success": false,
+      "error": "IMAGE_QUALITY_LOW",
+      "message": "Foto terlalu buram, silakan ulangi"
+    },
+    "expectSuccess": false,
+    "error": "Foto terlalu buram, silakan ulangi"
+  },
+  {
+    "TCID": "EKYC-03",
+    "desc": "KTP capture via kamera — OCR berhasil",
+    "step": "ktp",
+    "inputType": "camera",
+    "fixture": "data/ekyc/ktp-front.png",
+    "mockEndpoint": "**/ocr/ktp",
+    "mockResponse": {
+      "success": true,
+      "data": {
+        "nik": "3201010101010001",
+        "nama": "JOHN DOE",
+        "tempatLahir": "JAKARTA",
+        "tanggalLahir": "01-01-1990"
+      }
+    },
+    "expectSuccess": true,
+    "error": null
+  },
+  {
+    "TCID": "EKYC-04",
+    "desc": "Selfie pegang KTP — verifikasi wajah cocok",
+    "step": "selfie",
+    "inputType": "upload",
+    "fixture": "data/ekyc/selfie-with-ktp.png",
+    "mockEndpoint": "**/verify/selfie",
+    "mockResponse": {
+      "success": true,
+      "data": { "matchScore": 0.95, "isMatch": true }
+    },
+    "expectSuccess": true,
+    "error": null
+  },
+  {
+    "TCID": "EKYC-05",
+    "desc": "Selfie pegang KTP — wajah tidak cocok",
+    "step": "selfie",
+    "inputType": "upload",
+    "fixture": "data/ekyc/selfie-mismatch.png",
+    "mockEndpoint": "**/verify/selfie",
+    "mockResponse": {
+      "success": false,
+      "error": "FACE_MISMATCH",
+      "message": "Wajah tidak cocok dengan foto KTP"
+    },
+    "expectSuccess": false,
+    "error": "Wajah tidak cocok dengan foto KTP"
+  },
+  {
+    "TCID": "EKYC-06",
+    "desc": "Liveness detection — kedip + putar kepala berhasil",
+    "step": "liveness",
+    "inputType": "camera",
+    "fixture": "data/ekyc/face-center.png",
+    "mockEndpoint": "**/verify/liveness",
+    "mockResponse": {
+      "success": true,
+      "data": { "livenessScore": 0.98, "isAlive": true }
+    },
+    "expectSuccess": true,
+    "error": null
+  },
+  {
+    "TCID": "EKYC-07",
+    "desc": "Liveness detection — timeout, wajah tidak terdeteksi",
+    "step": "liveness",
+    "inputType": "camera",
+    "fixture": "data/ekyc/face-center.png",
+    "mockEndpoint": "**/verify/liveness",
+    "mockResponse": {
+      "success": false,
+      "error": "LIVENESS_TIMEOUT",
+      "message": "Verifikasi timeout, silakan coba lagi"
+    },
+    "expectSuccess": false,
+    "error": "Verifikasi timeout, silakan coba lagi"
+  },
+  {
+    "TCID": "EKYC-08",
+    "desc": "Upload bukan gambar (PDF) — validasi format",
+    "step": "ktp",
+    "inputType": "upload",
+    "fixture": "data/ekyc/invalid-file.pdf",
+    "mockEndpoint": "**/ocr/ktp",
+    "mockResponse": {
+      "success": false,
+      "error": "INVALID_FORMAT",
+      "message": "Format file tidak didukung"
+    },
+    "expectSuccess": false,
+    "error": "Format file tidak didukung"
+  }
+]

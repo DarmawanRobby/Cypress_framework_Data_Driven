@@ -22,5 +22,61 @@
     "password": "wrong_password",
     "expectSuccess": false,
     "error": "Epic sadface: Username and password do not match any user in this service"
+  },
+  {
+    "TCID": "SD04",
+    "desc": "unregistered username is rejected",
+    "username": "ghost_user",
+    "password": "secret_sauce",
+    "expectSuccess": false,
+    "error": "Epic sadface: Username and password do not match any user in this service"
+  },
+  {
+    "TCID": "SD05",
+    "desc": "wrong username and password is rejected",
+    "username": "wrong_user",
+    "password": "wrong_password",
+    "expectSuccess": false,
+    "error": "Epic sadface: Username and password do not match any user in this service"
+  },
+  {
+    "TCID": "SD06",
+    "desc": "empty username is rejected (Username is required)",
+    "username": "",
+    "password": "secret_sauce",
+    "expectSuccess": false,
+    "error": "Epic sadface: Username is required"
+  },
+  {
+    "TCID": "SD07",
+    "desc": "empty password is rejected (Password is required)",
+    "username": "standard_user",
+    "password": "",
+    "expectSuccess": false,
+    "error": "Epic sadface: Password is required"
+  },
+  {
+    "TCID": "SD08",
+    "desc": "both fields empty validates username first",
+    "username": "",
+    "password": "",
+    "expectSuccess": false,
+    "error": "Epic sadface: Username is required"
+  },
+  {
+    "TCID": "SD09",
+    "desc": "username is case-sensitive and rejected",
+    "username": "Standard_User",
+    "password": "secret_sauce",
+    "expectSuccess": false,
+    "error": "Epic sadface: Username and password do not match any user in this service"
+  },
+  {
+    "TCID": "SD10",
+    "desc": "surrounding whitespace in username is not trimmed and rejected",
+    "username": " standard_user ",
+    "password": "secret_sauce",
+    "expectSuccess": false,
+    "error": "Epic sadface: Username and password do not match any user in this service"
   }
 ]
